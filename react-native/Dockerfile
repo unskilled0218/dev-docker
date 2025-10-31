@@ -1,7 +1,5 @@
 FROM android-dev-image
 
-EXPOSE 8081
-
 RUN apt-get update &&\
   apt-get install -y curl &&\
   # Install Node.js 24
@@ -14,8 +12,10 @@ RUN apt-get update &&\
   cd watchman-v2025.05.26.00-linux &&\
   mkdir -p /usr/local/{bin,lib} /usr/local/var/run/watchman &&\
   cp bin/* /usr/local/bin &&\
-  cp lib/* /usr/local/lib&&\
-  chmod 755 /usr/local/bin/watchman&&\
+  cp lib/* /usr/local/lib &&\
+  chmod 755 /usr/local/bin/watchman &&\
   chmod 2777 /usr/local/var/run/watchman
+
+EXPOSE 8081
 
 WORKDIR /root/workdir
