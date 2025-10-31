@@ -13,10 +13,6 @@ adb kill-server && adb -a nodaemon server start &> /dev/null &
 ### Build image
 
 ```bash
-docker build -t my-dev-image -f dev/Dockerfile .
-```
-
-```bash
 docker build -t android-dev-image -f android/Dockerfile .
 ```
 
