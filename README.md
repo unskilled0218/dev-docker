@@ -1,4 +1,4 @@
-# Android dev docker
+# dev docker
 
 https://twosixtech.com/blog/integrating-docker-and-adb/
 
@@ -13,11 +13,15 @@ adb kill-server && adb -a nodaemon server start &> /dev/null &
 ### Build image
 
 ```bash
-docker build -t android-dev-image -f android/Dockerfile .
+docker build -t android-dev -f android/Dockerfile .
 ```
 
 ```bash
-docker build -t react-native-dev-image -f react-native/Dockerfile .
+docker build -t react-native-dev -f react-native/Dockerfile .
+
+# or
+
+docker build -t rn-non-root-dev -f react-native/nonroot.Dockerfile .
 ```
 
 ```bash
@@ -27,15 +31,19 @@ docker build -t tauri-dev-image -f tauri/Dockerfile .
 ### Run
 
 ```bash
-docker run -it --add-host=host.docker.internal:host-gateway android-dev-image
+docker run -itd --add-host=host.docker.internal:host-gateway android-dev-image
 ```
 
 ```bash
-docker run -it --net=host --add-host=host.docker.internal:host-gateway react-native-dev-image
+docker run -itd --net=host --add-host=host.docker.internal:host-gateway react-native-dev-image
+
+# or
+
+docker run -itd --net=host --add-host=host.docker.internal:host-gateway rn-non-root-image
 ```
 
 ```bash
-docker run -it --privileged --ipc=host --net=host --add-host=host.docker.internal:host-gateway --env DISPLAY=$DISPLAY -v /run/user/1000/at-spi/bus_1:/run/user/1000/at-spi/bus_1 tauri-dev-image:latest
+docker run -itd --privileged --ipc=host --net=host --add-host=host.docker.internal:host-gateway --env DISPLAY=$DISPLAY -v /run/user/1000/at-spi/bus_1:/run/user/1000/at-spi/bus_1 tauri-dev-image:latest
 ```
 
 ```bash
@@ -51,7 +59,15 @@ Can't use `-p` option with `--network=host`
 1. Edit package.json
 
 ```json
-"android-linux": "react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res && react-native run-android"
+{
+	"scripts": {
+		...
+
+		"android-linux": "react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res && react-native run-android",
+
+		...
+	}
+}
 ```
 
 2. Run command
