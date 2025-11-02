@@ -31,15 +31,15 @@ docker build -t tauri-dev-image -f tauri/Dockerfile .
 ### Run
 
 ```bash
-docker run -itd --add-host=host.docker.internal:host-gateway android-dev-image
+docker run -itd --add-host=host.docker.internal:host-gateway android-dev
 ```
 
 ```bash
-docker run -itd --net=host --add-host=host.docker.internal:host-gateway react-native-dev-image
+docker run -itd --net=host --add-host=host.docker.internal:host-gateway react-native-dev
 
 # or
 
-docker run -itd --net=host --add-host=host.docker.internal:host-gateway rn-non-root-image
+docker run -itd --net=host --add-host=host.docker.internal:host-gateway rn-non-root-dev
 ```
 
 ```bash
