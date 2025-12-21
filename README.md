@@ -1,6 +1,7 @@
 # dev docker
 
-https://twosixtech.com/blog/integrating-docker-and-adb/
+- https://twosixtech.com/blog/integrating-docker-and-adb/
+- https://code.visualstudio.com/remote/advancedcontainers/add-nonroot-user
 
 **Need to run before run container**
 
@@ -65,13 +66,13 @@ docker run -itd --net=host --add-host=host.docker.internal:host-gateway rn-non-r
 #### Tauri
 
 ```bash
-docker run -itd --privileged --ipc=host --net=host --add-host=host.docker.internal:host-gateway --env DISPLAY=$DISPLAY -v /run/user/1000/at-spi/bus_1:/run/user/1000/at-spi/bus_1 tauri-dev:latest
+docker run -itd --privileged --ipc=host --net=host --add-host=host.docker.internal:host-gateway --env DISPLAY=$DISPLAY --volume=/run/user/1000/at-spi/bus_1:/run/user/1000/at-spi/bus_1 tauri-dev:latest
 ```
 
 #### Tauri non root
 
 ```bash
-docker run -itd --privileged --ipc=host --net=host --add-host=host.docker.internal:host-gateway --env DISPLAY=$DISPLAY -v /run/user/1000/at-spi/bus_1:/run/user/1000/at-spi/bus_1 --user 1000:1000 --volume=/path/to/workdir/:/home/tauri/workdir/ tauri-non-root-dev:latest
+docker run -itd --privileged --ipc=host --net=host --add-host=host.docker.internal:host-gateway --env DISPLAY=$DISPLAY --volume=/run/user/1000/at-spi/bus_1:/run/user/1000/at-spi/bus_1 --volume=/path/to/workdir/:/home/ubuntu/workdir/ tauri-non-root-dev:latest
 ```
 
 #### Tauri docker compose
