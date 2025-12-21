@@ -3,12 +3,6 @@
 - https://twosixtech.com/blog/integrating-docker-and-adb/
 - https://code.visualstudio.com/remote/advancedcontainers/add-nonroot-user
 
-**Need to run before run container**
-
-```bash
-adb kill-server && adb -a nodaemon server start &> /dev/null &
-```
-
 ## Command line
 
 ### Build image
@@ -66,17 +60,13 @@ docker run -itd --net=host --add-host=host.docker.internal:host-gateway rn-non-r
 #### Tauri
 
 ```bash
-xhost +local:docker
-```
-
-```bash
-docker run -itd --privileged --ipc=host --net=host --add-host=host.docker.internal:host-gateway --env DISPLAY=$DISPLAY tauri-dev:latest
+docker run -itd --privileged --ipc=host --net=host --add-host=host.docker.internal:host-gateway --env DISPLAY=$DISPLAY --volume=/run/user/1000/at-spi/bus:/run/user/1000/at-spi/bus tauri-dev:latest
 ```
 
 #### Tauri non root
 
 ```bash
-docker run -itd --privileged --ipc=host --net=host --add-host=host.docker.internal:host-gateway --env DISPLAY=$DISPLAY tauri-non-root-dev:latest
+docker run -itd --privileged --ipc=host --net=host --add-host=host.docker.internal:host-gateway --env DISPLAY=$DISPLAY --volume=/run/user/1000/at-spi/bus:/run/user/1000/at-spi/bus --volume=/path/to/workdir:/home/node/workdir tauri-non-root-dev:latest
 ```
 
 #### Tauri docker compose
@@ -114,4 +104,20 @@ Can't use `-p` option with `--network=host`
 
 ```bash
 npm run anroid-linux
+```
+
+## Notes
+
+**Need to run before run container**
+
+### Android
+
+```bash
+adb kill-server && adb -a nodaemon server start &> /dev/null &
+```
+
+### Tauri
+
+```bash
+xhost +local:docker
 ```
