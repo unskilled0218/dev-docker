@@ -11,3 +11,4 @@ services:
       DISPLAY: ${DISPLAY}
     volumes:
       - /run/user/1000/at-spi/bus_1:/run/user/1000/at-spi/bus_1
+      - /path/to/workdir:/home/ubuntu/workdir
