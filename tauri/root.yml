@@ -1,0 +1,13 @@
+services:
+  app:
+    image: tauri-dev:latest
+    privileged: true
+    stdin_open: true
+    tty: true
+    network_mode: "host"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DISPLAY: ${DISPLAY}
+    volumes:
+      - /run/user/1000/at-spi/bus_1:/run/user/1000/at-spi/bus_1

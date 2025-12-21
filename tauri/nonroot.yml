@@ -1,6 +1,6 @@
 services:
   app:
-    image: tauri-dev-image:latest
+    image: tauri-non-root-dev:latest
     privileged: true
     stdin_open: true
     tty: true
