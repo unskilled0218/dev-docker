@@ -18,3 +18,7 @@ adb kill-server && adb -a nodaemon server start &> /dev/null &
 ```bash
 xhost +local:docker
 ```
+
+## To Do
+
+- [] Can't build AppImage +tauri

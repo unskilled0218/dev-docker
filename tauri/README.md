@@ -1,9 +1,5 @@
 # tauri
 
-## To Do
-
-- [] Can't build AppImage
-
 ## Build image
 
 ### Root
