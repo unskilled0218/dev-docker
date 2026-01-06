@@ -25,5 +25,6 @@ xhost +local:docker
 
 ## To Do
 
-- [] Can't build AppImage +tauri
+- [x] Can't build AppImage +tauri
 	- permission problem, Root can build AppImage, Non root user can't build AppImage.
+	- ```apt install file```

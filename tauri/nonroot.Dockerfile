@@ -8,7 +8,8 @@ ENV WEBKIT_DISABLE_COMPOSITING_MODE=1
 RUN apt update &&\
   apt install -y git vim curl unzip rustup build-essential \
   libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev \
-  librsvg2-dev libcanberra-gtk3-module xdg-utils
+  librsvg2-dev libcanberra-gtk3-module xdg-utils file &&\
+  rustup default stable
 
 USER ${USER_NAME}
 
