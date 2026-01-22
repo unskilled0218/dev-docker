@@ -19,11 +19,11 @@ docker build -t android-non-root-dev -f android/nonroot.Dockerfile .
 ### Root
 
 ```bash
-docker run -itd --add-host=host.docker.internal:host-gateway android-dev
+docker run -itd -p 5037:5037 --device=/dev/bus/usb --volume=/dev/bus/usb:/dev/bus/usb android-dev
 ```
 
 ### Non root
 
 ```bash
-docker run -itd --add-host=host.docker.internal:host-gateway android-non-root-dev
+docker run -itd -p 5037:5037 --device=/dev/bus/usb --volume=/dev/bus/usb:/dev/bus/usb android-non-root-dev
 ```

@@ -1,9 +1,10 @@
 FROM ubuntu:latest
 
+# If host use adb uncomment
+# ENV ANDROID_ADB_SERVER_ADDRESS=host.docker.internal
+
 ENV DEBIAN_FRONTEND=noninteractive
-ENV ANDROID_ADB_SERVER_ADDRESS=host.docker.internal
 ENV ANDROID_HOME=/root/Android/Sdk
-ENV PATH="$PATH:$ANDROID_HOME/platform-tools"
 
 RUN apt-get update &&\
   apt-get install -y git wget vim unzip openjdk-17-jdk &&\
@@ -14,4 +15,5 @@ RUN apt-get update &&\
   rm commandlinetools-linux-13114758_latest.zip &&\
   mv /root/Android/Sdk/cmdline-tools/cmdline-tools /root/Android/Sdk/cmdline-tools/latest &&\
   yes | /root/Android/Sdk/cmdline-tools/latest/bin/sdkmanager --licenses &&\
-  yes | /root/Android/Sdk/cmdline-tools/latest/bin/sdkmanager --install "platform-tools" "platforms;android-34"
+  yes | /root/Android/Sdk/cmdline-tools/latest/bin/sdkmanager --install "platform-tools" "platforms;android-34" &&\
+  echo 'export PATH="$PATH:${ANDROID_HOME}/platform-tools"' >> /root/.bashrc
