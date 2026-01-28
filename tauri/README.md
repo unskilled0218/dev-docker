@@ -19,7 +19,7 @@ docker build -t tauri-non-root-dev -f tauri/nonroot.Dockerfile .
 ### Root
 
 ```bash
-docker run -itd --privileged --ipc=host --net=host --add-host=host.docker.internal:host-gateway --env DISPLAY=$DISPLAY --volume=/run/user/1000/at-spi/bus:/run/user/1000/at-spi/bus tauri-dev:latest
+docker run -itd --privileged --ipc=host --net=host --add-host=host.docker.internal:host-gateway --env DISPLAY=$DISPLAY --volume=/run/user/1000/at-spi/bus:/run/user/1000/at-spi/bus --volume=/home/user/.Xauthority:/root/.Xauthority tauri-dev:latest
 ```
 
 #### docker compose
@@ -31,7 +31,7 @@ docker compose -f tauri/root.yml up -d
 ### Non root
 
 ```bash
-docker run -itd --privileged --ipc=host --net=host --add-host=host.docker.internal:host-gateway --env DISPLAY=$DISPLAY --volume=/run/user/1000/at-spi/bus:/run/user/1000/at-spi/bus --volume=/path/to/workdir:/home/node/workdir tauri-non-root-dev:latest
+docker run -itd --privileged --ipc=host --net=host --add-host=host.docker.internal:host-gateway --env DISPLAY=$DISPLAY --volume=/run/user/1000/at-spi/bus:/run/user/1000/at-spi/bus --volume=/path/to/workdir:/home/node/workdir --volume=/home/user/.Xauthority:/home/node/.Xauthority tauri-non-root-dev:latest
 ```
 
 #### docker compose
