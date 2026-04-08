@@ -3,10 +3,6 @@
 - https://twosixtech.com/blog/integrating-docker-and-adb/
 - https://code.visualstudio.com/remote/advancedcontainers/add-nonroot-user
 
-- [android](./android)
-- [react native](./react-native)
-- [tauri](./tauri)
-
 ## Bulid image and run
 
 - [Android](#android)
