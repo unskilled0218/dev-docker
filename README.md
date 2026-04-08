@@ -55,7 +55,7 @@ docker build -t tauri-dev -f tauri.Dockerfile .
 #### Run
 
 ```bash
-docker run -itd --privileged --ipc=host --net=host --add-host=host.docker.internal:host-gateway --env DISPLAY=$DISPLAY --volume=/run/user/1000/at-spi/bus:/run/user/1000/at-spi/bus --volume=/path/to/workdir:/home/node/workdir --volume=/home/user/.Xauthority:/home/node/.Xauthority tauri-dev:latest
+docker run -itd --privileged --ipc=host --net=host --add-host=host.docker.internal:host-gateway --env DISPLAY=$DISPLAY --device=/dev/bus/usb --volume=/dev/bus/usb:/dev/bus/usb --volume=/run/$(whoami)/1000/at-spi/bus:/run/user/1000/at-spi/bus --volume=$(pwd):/home/ubuntu --volume=/home/$(whoami)/.Xauthority:/home/ubuntu/.Xauthority tauri-dev:latest
 ```
 
 ```bash
@@ -102,8 +102,8 @@ npm run anroid-linux
 
 ## To Do
 
-- [ ] Add support for andorid build +tauri
 - [ ] Create zombie process when run `npm run tauri dev` +tauri
+- [x] Add support for andorid build +tauri
 - [x] Can't build AppImage +tauri
 	- permission problem, Root can build AppImage, Non root user can't build AppImage.
 	- ```apt install file```
