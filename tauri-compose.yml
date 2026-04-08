@@ -1,6 +1,7 @@
 services:
   app:
     image: tauri-dev:latest
+    container_name: project
     privileged: true
     stdin_open: true
     tty: true
@@ -10,4 +11,5 @@ services:
     environment:
       DISPLAY: ${DISPLAY}
     volumes:
-      - /run/user/1000/at-spi/bus_1:/run/user/1000/at-spi/bus_1
+      - /run/user/1000/at-spi/bus:/run/user/1000/at-spi/bus
+      - /path/to/workdir:/home/ubuntu/workdir
