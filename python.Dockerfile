@@ -9,4 +9,4 @@ RUN apt update && apt full-upgrade -y &&\
 
 USER ${USER_NAME}
 
-WORKDIR /home/${USER_NAME}
+WORKDIR /home/${USER_NAME}/workdir
