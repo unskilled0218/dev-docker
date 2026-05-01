@@ -1,0 +1,19 @@
+FROM python:3.12
+
+ENV USER_NAME="dev"
+ENV GROUP_NAME="dev"
+
+RUN apt update && apt full-upgrade -y &&\
+  apt install -y vim &&\
+  groupadd -g 1000 ${GROUP_NAME} &&\
+  useradd -m -u 1000 -g ${GROUP_NAME} ${USER_NAME}
+
+USER ${USER_NAME}
+
+RUN curl -fsSL https://opencode.ai/install | bash
+
+ENV PATH=$PATH:/home/${USER_NAME}/.opencode/bin
+
+COPY opencode.json /home/${USER_NAME}/.config/opencode/opencode.json
+
+WORKDIR /home/${USER_NAME}/workdir

@@ -1,0 +1,11 @@
+services:
+  app:
+    image: opencode
+    container_name: opencode-project
+    tty: true
+    stdin_open: true
+    ports:
+      - 8000:8000
+    working_dir: /home/dev/workdir
+    volumes:
+      - ./:/home/dev/workdir
