@@ -10,6 +10,18 @@
 - [python](#python)
 - [tauri](#tauri)
 
+### Python
+
+```bash
+docker build -t python-non-root:3.12 -f python.Dockerfile .
+```
+
+### opencode
+
+```bash
+docker build -t opencode -f opencode.Dockerfile .
+```
+
 ### Android
 
 #### Build image
@@ -36,12 +48,6 @@ docker build -t rn-dev -f react-native.Dockerfile .
 
 ```bash
 docker run -itd --net=host --add-host=host.docker.internal:host-gateway rn-dev
-```
-
-### Python
-
-```bash
-docker build -t python-non-root:3.12 -f python.Dockerfile .
 ```
 
 ### tauri
