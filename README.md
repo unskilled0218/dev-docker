@@ -33,7 +33,12 @@ docker build -t android-dev -f android.Dockerfile .
 #### Run
 
 ```bash
-docker run -itd -p 5037:5037 --device=/dev/bus/usb --volume=/dev/bus/usb:/dev/bus/usb android-dev
+docker run \
+-itd \
+-p 5037:5037 \
+--device=/dev/bus/usb \
+--volume=/dev/bus/usb:/dev/bus/usb \
+android-dev
 ```
 
 ### React Native
@@ -47,7 +52,11 @@ docker build -t rn-dev -f react-native.Dockerfile .
 #### Run
 
 ```bash
-docker run -itd --net=host --add-host=host.docker.internal:host-gateway rn-dev
+docker run \
+-itd \
+--net=host \
+--add-host=host.docker.internal:host-gateway \
+rn-dev
 ```
 
 ### tauri
@@ -61,7 +70,19 @@ docker build -t tauri-dev -f tauri.Dockerfile .
 #### Run
 
 ```bash
-docker run -itd --privileged --ipc=host --net=host --add-host=host.docker.internal:host-gateway --env DISPLAY=$DISPLAY --device=/dev/bus/usb --volume=/dev/bus/usb:/dev/bus/usb --volume=/run/$(whoami)/1000/at-spi/bus:/run/user/1000/at-spi/bus --volume=$(pwd):/home/ubuntu --volume=/home/$(whoami)/.Xauthority:/home/ubuntu/.Xauthority tauri-dev:latest
+docker run \
+-itd \
+--privileged \
+--ipc=host \
+--net=host \
+--add-host=host.docker.internal:host-gateway \
+--env DISPLAY=$DISPLAY \
+--device=/dev/bus/usb \
+--volume=/dev/bus/usb:/dev/bus/usb \
+--volume=/run/user/1000/at-spi/bus:/run/user/1000/at-spi/bus \
+--volume=/home/$(whoami)/.Xauthority:/home/ubuntu/.Xauthority \
+--volume=./:/home/ubuntu/workdir \
+tauri-dev:latest
 ```
 
 ```bash

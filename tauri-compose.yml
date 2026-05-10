@@ -11,5 +11,7 @@ services:
     environment:
       DISPLAY: ${DISPLAY}
     volumes:
+      - ./:/home/ubuntu/workdir
       - /run/user/1000/at-spi/bus:/run/user/1000/at-spi/bus
-      - /path/to/workdir:/home/ubuntu/workdir
+      - /dev/bus/usb:/dev/bus/usb
+      - /home/user/.Xauthority:/home/ubuntu/.Xauthority
