@@ -10,6 +10,7 @@ services:
       - "host.docker.internal:host-gateway"
     environment:
       DISPLAY: ${DISPLAY}
+    working_dir: /home/ubuntu/workdir
     volumes:
       - ./:/home/ubuntu/workdir
       - /run/user/1000/at-spi/bus:/run/user/1000/at-spi/bus
