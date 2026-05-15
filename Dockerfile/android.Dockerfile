@@ -10,8 +10,8 @@ WORKDIR /home/${USER_NAME}
 ENV DEBIAN_FRONTEND=noninteractive
 ENV ANDROID_HOME=/home/${USER_NAME}/Android/Sdk
 
-RUN apt-get update &&\
-  apt-get install -y git wget vim unzip openjdk-17-jdk
+RUN apt update &&\
+  apt install -y git wget vim unzip openjdk-17-jdk
 
 USER ${USER_NAME}
 

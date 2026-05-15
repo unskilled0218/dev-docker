@@ -13,13 +13,19 @@
 ### Python
 
 ```bash
-docker build -t python-non-root:3.12 -f python.Dockerfile .
+docker build -t python-non-root:3.12 -f Dockerfile/python.Dockerfile .
 ```
 
 ### opencode
 
 ```bash
-docker build -t opencode -f opencode.Dockerfile .
+docker build -t opencode -f Dockerfile/opencode.Dockerfile .
+```
+
+### npm
+
+```bash
+docker build -t npm -f Dockerfile/npm.Dockerfile .
 ```
 
 ### Android
@@ -27,7 +33,7 @@ docker build -t opencode -f opencode.Dockerfile .
 #### Build image
 
 ```bash
-docker build -t android-dev -f android.Dockerfile .
+docker build -t android-dev -f Dockerfile/android.Dockerfile .
 ```
 
 #### Run
@@ -46,7 +52,7 @@ android-dev
 #### Build image
 
 ```bash
-docker build -t rn-dev -f react-native.Dockerfile .
+docker build -t rn-dev -f Dockerfile/react-native.Dockerfile .
 ```
 
 #### Run
@@ -64,7 +70,7 @@ rn-dev
 #### Build image
 
 ```bash
-docker build -t tauri-dev -f tauri.Dockerfile .
+docker build -t tauri-dev -f Dockerfile/tauri.Dockerfile .
 ```
 
 #### Run
@@ -129,7 +135,6 @@ npm run anroid-linux
 
 ## To Do
 
-- [ ] Create zombie process when run `npm run tauri dev` +tauri
 - [x] Add support for andorid build +tauri
 - [x] Can't build AppImage +tauri
 	- permission problem, Root can build AppImage, Non root user can't build AppImage.

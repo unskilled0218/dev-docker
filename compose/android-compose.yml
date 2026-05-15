@@ -1,0 +1,11 @@
+services:
+  app:
+    image: android-dev
+    container_name: android-dev
+    ports:
+      - 5037:5037
+    devices:
+      - /dev/bus/usb
+    volumes:
+      - ./:/home/ubuntu/workdir
+      - /dev/bus/usb:/dev/bus/usb
