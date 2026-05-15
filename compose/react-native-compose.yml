@@ -1,0 +1,12 @@
+services:
+  app:
+    image: rn-dev
+    container_name: rn-dev
+    stdin_open: true
+    tty: true
+    network_mode: "host"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    working_dir: /home/ubuntu/workdir
+    volumes:
+      - ./:/home/ubuntu/workdir

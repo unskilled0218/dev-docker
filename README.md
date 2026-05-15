@@ -16,12 +16,6 @@
 docker build -t python-non-root:3.12 -f Dockerfile/python.Dockerfile .
 ```
 
-### opencode
-
-```bash
-docker build -t opencode -f Dockerfile/opencode.Dockerfile .
-```
-
 ### npm
 
 ```bash

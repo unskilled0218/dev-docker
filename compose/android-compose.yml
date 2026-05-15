@@ -2,8 +2,11 @@ services:
   app:
     image: android-dev
     container_name: android-dev
+    stdin_open: true
+    tty: true
     ports:
       - 5037:5037
+    working_dir: /home/ubuntu/workdir
     devices:
       - /dev/bus/usb
     volumes:
