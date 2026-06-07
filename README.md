@@ -5,15 +5,23 @@
 
 ## Bulid image and run
 
+- [python](#python)
+- [Rust](#rust)
+- [npm](#npm)
 - [Android](#android)
 - [React Native](#react-native)
-- [python](#python)
 - [tauri](#tauri)
 
 ### Python
 
 ```bash
 docker build -t python-non-root:3.12 -f Dockerfile/python.Dockerfile .
+```
+
+### Rust
+
+```bash
+docker build -t rust-non-root:1.96 -f Dockerfile/rust.Dockerfile .
 ```
 
 ### npm
