@@ -27,7 +27,7 @@ docker build -t rust-non-root:1.96 -f Dockerfile/rust.Dockerfile .
 ### npm
 
 ```bash
-docker build -t npm -f Dockerfile/npm.Dockerfile .
+docker build -t npm-non-root -f Dockerfile/npm.Dockerfile .
 ```
 
 ### Android
