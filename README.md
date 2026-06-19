@@ -7,6 +7,7 @@
 
 - [python](#python)
 - [Rust](#rust)
+- [Rust node](#rust-node)
 - [npm](#npm)
 - [Android](#android)
 - [React Native](#react-native)
@@ -22,6 +23,12 @@ docker build -t python-non-root:3.12 -f Dockerfile/python.Dockerfile .
 
 ```bash
 docker build -t rust-non-root:1.96 -f Dockerfile/rust.Dockerfile .
+```
+
+### Rust node
+
+```bash
+docker build -t rust-node-non-root:1.96 -f Dockerfile/rust-node.Dockerfile .
 ```
 
 ### npm
