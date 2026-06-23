@@ -15,4 +15,4 @@ services:
       - ./:/home/ubuntu/workdir
       - /run/user/1000/at-spi/bus:/run/user/1000/at-spi/bus
       - /dev/bus/usb:/dev/bus/usb
-      - /home/user/.Xauthority:/home/ubuntu/.Xauthority
+      - /home/${USER}/.Xauthority:/home/ubuntu/.Xauthority
