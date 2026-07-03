@@ -10,7 +10,7 @@ ENV PATH="$PATH:$ANDROID_HOME/platform-tools"
 
 RUN apt-get update &&\
   apt-get install -y \
-  git wget vim unzip curl openjdk-17-jdk rustup build-essential \
+  git wget vim unzip curl openjdk-17-jdk x11-apps rustup build-essential \
   libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev \
   librsvg2-dev libcanberra-gtk3-module xdg-utils file &&\
   curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - && \
