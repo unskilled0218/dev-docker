@@ -6,6 +6,7 @@
 ## Bulid image and run
 
 - [python](#python)
+- [python-node](#python-node)
 - [Rust](#rust)
 - [Rust node](#rust-node)
 - [npm](#npm)
@@ -17,6 +18,12 @@
 
 ```bash
 docker build -t python-non-root:3.12 -f Dockerfile/python.Dockerfile .
+```
+
+### Python node
+
+```bash
+docker build -t python-node-non-root:3.12 -f Dockerfile/python-node.Dockerfile .
 ```
 
 ### Rust
