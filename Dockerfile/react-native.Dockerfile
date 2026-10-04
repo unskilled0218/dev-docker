@@ -1,11 +1,16 @@
 FROM ubuntu:latest
 
-ENV USER_NAME="ubuntu"
-
 ENV DEBIAN_FRONTEND=noninteractive
 ENV ANDROID_ADB_SERVER_ADDRESS=host.docker.internal
 ENV ANDROID_HOME=/home/${USER_NAME}/Android/Sdk
 ENV PATH="$PATH:$ANDROID_HOME/platform-tools"
+
+ENV USER_NAME="dev"
+ENV GROUP_NAME="container"
+
+usermod -l dev "$(getent passwd 1000 | cut -d: -f1)"
+groupmod -n container "$(getent group 1000 | cut -d: -f1)"
+usermod -d /home/dev -m dev
 
 RUN apt-get update &&\
   apt-get install -y git wget vim unzip curl openjdk-17-jdk &&\

@@ -1,6 +1,11 @@
 FROM ubuntu:latest
 
-ENV USER_NAME="ubuntu"
+ENV USER_NAME="dev"
+ENV GROUP_NAME="container"
+
+usermod -l dev "$(getent passwd 1000 | cut -d: -f1)"
+groupmod -n container "$(getent group 1000 | cut -d: -f1)"
+usermod -d /home/dev -m dev
 
 WORKDIR /home/${USER_NAME}
 

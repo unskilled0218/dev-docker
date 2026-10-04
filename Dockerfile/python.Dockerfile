@@ -1,7 +1,7 @@
 FROM python:3.12
 
-ENV USER_NAME="dev-container"
-ENV GROUP_NAME="dev-container"
+ENV USER_NAME="dev"
+ENV GROUP_NAME="container"
 
 RUN apt update && apt full-upgrade -y &&\
     groupadd -g 1000 ${GROUP_NAME} &&\
