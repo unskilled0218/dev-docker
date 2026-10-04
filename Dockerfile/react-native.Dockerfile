@@ -1,22 +1,22 @@
 FROM ubuntu:latest
 
+ENV USER_NAME="dev"
+ENV GROUP_NAME="container"
+
 ENV DEBIAN_FRONTEND=noninteractive
 ENV ANDROID_ADB_SERVER_ADDRESS=host.docker.internal
 ENV ANDROID_HOME=/home/${USER_NAME}/Android/Sdk
 ENV PATH="$PATH:$ANDROID_HOME/platform-tools"
 
-ENV USER_NAME="dev"
-ENV GROUP_NAME="container"
+RUN usermod -l dev "$(getent passwd 1000 | cut -d: -f1)" &&\
+  groupmod -n container "$(getent group 1000 | cut -d: -f1)" &&\
+  usermod -d /home/dev -m dev
 
-usermod -l dev "$(getent passwd 1000 | cut -d: -f1)"
-groupmod -n container "$(getent group 1000 | cut -d: -f1)"
-usermod -d /home/dev -m dev
-
-RUN apt-get update &&\
-  apt-get install -y git wget vim unzip curl openjdk-17-jdk &&\
+RUN apt update &&\
+  apt install -y git wget vim unzip curl openjdk-17-jdk &&\
   curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - && \
-  apt-get install -y nodejs && \
-  apt-get clean && rm -rf /var/lib/apt/lists/* &&\
+  apt install -y nodejs && \
+  apt clean && rm -rf /var/lib/apt/lists/* &&\
   mkdir /home/${USER_NAME}/.npm-global && \
   npm config set prefix '/home/${USER_NAME}/.npm-global' && \
   echo 'export PATH=/home/${USER_NAME}/.npm-global/bin:$PATH' >> /home/${USER_NAME}/.bashrc && \
