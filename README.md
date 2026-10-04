@@ -46,69 +46,20 @@ docker build -t npm-non-root -f Dockerfile/npm.Dockerfile .
 
 ### Android
 
-#### Build image
-
 ```bash
 docker build -t android-dev -f Dockerfile/android.Dockerfile .
 ```
 
-#### Run
-
-```bash
-docker run \
--itd \
--p 5037:5037 \
---device=/dev/bus/usb \
---volume=/dev/bus/usb:/dev/bus/usb \
-android-dev
-```
-
 ### React Native
-
-#### Build image
 
 ```bash
 docker build -t rn-dev -f Dockerfile/react-native.Dockerfile .
 ```
 
-#### Run
-
-```bash
-docker run \
--itd \
---net=host \
---add-host=host.docker.internal:host-gateway \
-rn-dev
-```
-
 ### tauri
-
-#### Build image
 
 ```bash
 docker build -t tauri-dev -f Dockerfile/tauri.Dockerfile .
-```
-
-#### Run
-
-```bash
-docker run \
--itd \
---privileged \
---ipc=host \
---net=host \
---add-host=host.docker.internal:host-gateway \
---env DISPLAY=$DISPLAY \
---device=/dev/bus/usb \
---volume=/dev/bus/usb:/dev/bus/usb \
---volume=/run/user/1000/at-spi/bus:/run/user/1000/at-spi/bus \
---volume=/home/$(whoami)/.Xauthority:/home/ubuntu/.Xauthority \
---volume=./:/home/ubuntu/workdir \
-tauri-dev:latest
-```
-
-```bash
-docker compose -f tauri-compose.yml up -d
 ```
 
 ## Notes
@@ -148,10 +99,3 @@ xhost +local:docker
 ```bash
 npm run anroid-linux
 ```
-
-## To Do
-
-- [x] Add support for andorid build +tauri
-- [x] Can't build AppImage +tauri
-	- permission problem, Root can build AppImage, Non root user can't build AppImage.
-	- ```apt install file```
