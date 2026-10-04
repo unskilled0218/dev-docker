@@ -9,8 +9,7 @@ RUN usermod -l dev "$(getent passwd 1000 | cut -d: -f1)" &&\
 
 WORKDIR /home/${USER_NAME}
 
-# If host use adb uncomment
-# ENV ANDROID_ADB_SERVER_ADDRESS=host.docker.internal
+ENV ANDROID_ADB_SERVER_ADDRESS=host.docker.internal
 
 ENV DEBIAN_FRONTEND=noninteractive
 
