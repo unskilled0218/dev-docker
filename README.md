@@ -9,36 +9,7 @@
 bash build-all.sh
 ```
 
-## Bulid image and run
-
-- [base](#base)
-- [npm](#npm)
-- [Android](#android)
-- [tauri](#tauri)
-
-### base
-
-```bash
-docker build -t my-base:latest -f Dockerfile/base.Dockerfile .
-```
-
-### npm
-
-```bash
-docker build -t npm-non-root -f Dockerfile/npm.Dockerfile .
-```
-
-### Android
-
-```bash
-docker build -t android-dev -f Dockerfile/android.Dockerfile .
-```
-
-### tauri
-
-```bash
-docker build -t tauri-dev -f Dockerfile/tauri.Dockerfile .
-```
+Builds all images and publishes Forgejo packages. See [image releases](docs/image-releases.md) for tags, credentials, and build-only usage.
 
 ## Notes
 
