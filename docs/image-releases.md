@@ -2,7 +2,7 @@
 
 Run `bash build-all.sh` to build all images and push the `latest` tag. Run `bash build-all.sh v1.0.0` to publish a specific tag. Run `bash build-all.sh --build-only` to build without logging in or pushing. The script works from any working directory.
 
-The Git origin remote supplies the Forgejo registry host, package owner, and repository. With `ssh://git@git.lan/dev/dev-docker.git`, images are `git.lan/dev/dev-docker/my-base:latest`, `git.lan/dev/dev-docker/npm-non-root:latest`, `git.lan/dev/dev-docker/android-dev:latest`, and `git.lan/dev/dev-docker/tauri-dev:latest`. Source labels and repository-scoped names let Forgejo link new packages to the repository. Existing packages may need manual linking in Forgejo's package settings.
+The Git origin remote supplies the Forgejo registry host, package owner, and repository. With `ssh://git@git.lan/dev/dev-docker.git`, images are `git.lan/dev/my-base:latest`, `git.lan/dev/npm-non-root:latest`, `git.lan/dev/android-dev:latest`, and `git.lan/dev/tauri-dev:latest`. OCI source labels let Forgejo link new packages to the repository. Existing packages may need manual linking in Forgejo's package settings.
 
 The login username defaults to the remote owner. For an organization-owned repository, set `FORGEJO_USERNAME` to your account name. The token defaults to `~/.config/forgejo/forgejo-token`; override it with `FORGEJO_TOKEN_FILE`. The account needs package write access. Docker receives the token through standard input and stores login credentials only in a temporary directory removed on exit.
 

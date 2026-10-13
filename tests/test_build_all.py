@@ -70,7 +70,7 @@ if command == os.environ.get('TEST_FAIL'):
     self.assertEqual(len(pushes), 4)
     for build, image in zip(builds, ["my-base", "npm-non-root", "android-dev", "tauri-dev"]):
       self.assertIn(f"{image}:latest", build)
-      self.assertIn(f"git.lan/dev/dev-docker/{image}:v1.2.3", build)
+      self.assertIn(f"git.lan/dev/{image}:v1.2.3", build)
       self.assertIn("org.opencontainers.image.source=https://git.lan/dev/dev-docker", build)
       self.assertFalse(Path(build[-1]).exists())
     self.assertIn("--secret", builds[0])
@@ -89,7 +89,7 @@ if command == os.environ.get('TEST_FAIL'):
         self.assertEqual(result.returncode, 0, result.stderr)
         calls = self.calls()
         self.assertEqual(len(calls), 5)
-        self.assertIn("git.lan/dev/dev-docker/my-base:latest", calls[1])
+        self.assertIn("git.lan/dev/my-base:latest", calls[1])
 
   def test_failures_stop_and_cleanup(self):
     for failure in ["login", "build", "push"]:
