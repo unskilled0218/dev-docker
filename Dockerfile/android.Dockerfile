@@ -1,4 +1,4 @@
-FROM my-base:latest
+FROM npm-non-root:latest
 
 ENV ANDROID_ADB_SERVER_ADDRESS=host.docker.internal
 

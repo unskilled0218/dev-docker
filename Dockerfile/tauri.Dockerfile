@@ -1,5 +1,3 @@
-FROM npm-non-root:latest AS build
-
 FROM android-dev:latest
 
 ENV WEBKIT_DISABLE_COMPOSITING_MODE=1
