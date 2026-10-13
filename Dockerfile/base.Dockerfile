@@ -18,7 +18,8 @@ RUN usermod -l ${USER_NAME} "$(getent passwd 1000 | cut -d: -f1)" &&\
   update-ca-certificates &&\
   curl -fsSL https://git.lan/dev/scripts/raw/branch/main/install-docker.sh | bash
 
-RUN chown -R ${USER_NAME}:${GROUP_NAME} /home/${USER_NAME}
+RUN mkdir -p /home/${USER_NAME}/.config/forgejo &&\
+  chown -R ${USER_NAME}:${GROUP_NAME} /home/${USER_NAME}
 
 USER ${USER_NAME}
 
