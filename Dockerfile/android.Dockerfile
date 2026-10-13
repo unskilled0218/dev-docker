@@ -1,13 +1,4 @@
-FROM ubuntu:latest
-
-ENV USER_NAME="dev"
-ENV GROUP_NAME="container"
-
-RUN usermod -l dev "$(getent passwd 1000 | cut -d: -f1)" &&\
-  groupmod -n container "$(getent group 1000 | cut -d: -f1)" &&\
-  usermod -d /home/dev -m dev
-
-WORKDIR /home/${USER_NAME}
+FROM my-base:latest
 
 ENV ANDROID_ADB_SERVER_ADDRESS=host.docker.internal
 
@@ -16,8 +7,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV ANDROID_HOME=/home/${USER_NAME}/Android/Sdk
 ENV GRADLE_HOME=/home/${USER_NAME}/gradle-9.5.1
 
-RUN apt update &&\
-  apt install -y git wget vim unzip openjdk-17-jdk
+USER root
+
+RUN apt update && apt install -y openjdk-17-jdk
 
 USER ${USER_NAME}
 
@@ -37,5 +29,3 @@ RUN \
   unzip -d /home/${USER_NAME} gradle-9.5.1-bin.zip &&\
   rm gradle-9.5.1-bin.zip &&\
   echo 'export PATH=$PATH:${GRADLE_HOME}/bin' >> /home/${USER_NAME}/.bashrc
-
-WORKDIR /home/${USER_NAME}/workdir

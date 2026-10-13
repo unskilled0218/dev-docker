@@ -6,13 +6,28 @@ services:
     stdin_open: true
     tty: true
     network_mode: "host"
+    group_add:
+      - "988"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
       DISPLAY: ${DISPLAY}
-    working_dir: /home/dev/workdir
+    working_dir: /home/container/workdir/project
     volumes:
-      - ./:/home/dev/workdir
+      - ./:/home/container/workdir
+      - /var/run/docker.sock:/var/run/docker.sock
       - /run/user/1000/at-spi/bus:/run/user/1000/at-spi/bus
-      - /dev/bus/usb:/dev/bus/usb
-      - /home/${USER}/.Xauthority:/home/dev/.Xauthority
+      - /container/bus/usb:/container/bus/usb
+      - ~/.Xauthority:/home/container/.Xauthority
+      - type: bind
+        source: ${HOME}/.ssh
+        target: /home/container/.ssh
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${HOME}/.gitconfig
+        target: /home/container/.gitconfig
+        read_only: true
+        bind:
+          create_host_path: false

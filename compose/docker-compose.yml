@@ -7,18 +7,25 @@ services:
     network_mode: "host"
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    working_dir: /home/ubuntu/workdir
+    working_dir: /home/container/workdir/project
     volumes:
-      - ./:/home/ubuntu/workdir
+      - ./:/home/container/workdir
+      - /var/run/docker.sock:/var/run/docker.sock
       - type: bind
         source: ${HOME}/.ssh
-        target: /home/dev/.ssh
+        target: /home/container/.ssh
         read_only: true
         bind:
           create_host_path: false
       - type: bind
         source: ${HOME}/.gitconfig
-        target: /home/dev/.gitconfig
+        target: /home/container/.gitconfig
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${HOME}/.config/forgejo/forgejo-token
+        target: /home/container/.config/forgejo/forgejo-token
         read_only: true
         bind:
           create_host_path: false

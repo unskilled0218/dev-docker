@@ -1,50 +1,29 @@
-FROM ubuntu:latest
+FROM npm-non-root:latest AS build
 
-ENV USER_NAME="dev"
-ENV GROUP_NAME="container"
+FROM android-dev:latest
 
-ENV DEBIAN_FRONTEND=noninteractive
 ENV WEBKIT_DISABLE_COMPOSITING_MODE=1
 ENV ANDROID_ADB_SERVER_ADDRESS=host.docker.internal
 ENV ANDROID_HOME=/home/${USER_NAME}/Android/Sdk
 ENV PATH="$PATH:$ANDROID_HOME/platform-tools"
 
-RUN usermod -l dev "$(getent passwd 1000 | cut -d: -f1)" &&\
-  groupmod -n container "$(getent group 1000 | cut -d: -f1)" &&\
-  usermod -d /home/dev -m dev
+USER root
 
 RUN apt update &&\
   apt install -y \
-  git wget vim unzip curl openjdk-17-jdk x11-apps rustup build-essential \
-  libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev \
-  librsvg2-dev libcanberra-gtk3-module xdg-utils file &&\
-  curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - && \
-  apt install -y nodejs && \
-  apt clean && rm -rf /var/lib/apt/lists/* &&\
-  mkdir /home/${USER_NAME}/.npm-global && \
-  npm config set prefix '/home/${USER_NAME}/.npm-global' && \
-  echo 'export PATH=/home/${USER_NAME}/.npm-global/bin:$PATH' >> /home/${USER_NAME}/.bashrc && \
-  /bin/bash -c 'source /home/${USER_NAME}/.bashrc' &&\
-  npm --version &&\
-  node --version &&\
+  x11-apps rustup xdg-utils file \
+  libwebkit2gtk-4.1-dev libxdo-dev libssl-dev \
+  libayatana-appindicator3-dev librsvg2-dev libcanberra-gtk3-module &&\
   rustup default stable
 
 USER ${USER_NAME}
 
-EXPOSE 1420
-
 WORKDIR /home/${USER_NAME}
+
+EXPOSE 1420
 
 RUN rustup default stable &&\
   rustup target add x86_64-unknown-linux-gnu &&\
-  # Setting up android dev
-  mkdir -p /home/${USER_NAME}/Android/Sdk/cmdline-tools &&\
-  wget https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip &&\
-  unzip commandlinetools-linux-13114758_latest.zip -d /home/${USER_NAME}/Android/Sdk/cmdline-tools/ &&\
-  rm commandlinetools-linux-13114758_latest.zip &&\
-  mv /home/${USER_NAME}/Android/Sdk/cmdline-tools/cmdline-tools /home/${USER_NAME}/Android/Sdk/cmdline-tools/latest &&\
-  yes | /home/${USER_NAME}/Android/Sdk/cmdline-tools/latest/bin/sdkmanager --licenses &&\
-  yes | /home/${USER_NAME}/Android/Sdk/cmdline-tools/latest/bin/sdkmanager --install "platform-tools" "platforms;android-36" &&\
   # Watchman
   wget https://github.com/facebook/watchman/releases/download/v2025.05.26.00/watchman-v2025.05.26.00-linux.zip &&\
   unzip watchman-v2025.05.26.00-linux.zip &&\
@@ -59,5 +38,3 @@ RUN mkdir -p /usr/local/{bin,lib} /usr/local/var/run/watchman &&\
   chmod 2777 /usr/local/var/run/watchman
 
 USER ${USER_NAME}
-
-WORKDIR /home/${USER_NAME}
