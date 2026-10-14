@@ -1,10 +1,5 @@
 # dev docker
 
-- https://twosixtech.com/blog/integrating-docker-and-adb/
-- https://code.visualstudio.com/remote/advancedcontainers/add-nonroot-user
-
-*Build base first. Images are based on base*
-
 ```bash
 bash build-all.sh
 ```
@@ -14,6 +9,8 @@ Builds all images and publishes Forgejo packages. See [image releases](docs/imag
 ## Notes
 
 ### Android
+
+- https://twosixtech.com/blog/integrating-docker-and-adb/
 
 **Need to run before run container**
 
