@@ -4,7 +4,7 @@ USER root
 
 RUN apt update &&\
   apt install -y \
-  git wget vim unzip curl build-essential &&\
+  git wget vim unzip curl build-essential python3-full &&\
   curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - &&\
   apt install -y nodejs &&\
   apt clean &&\
@@ -15,7 +15,7 @@ RUN apt update &&\
   /bin/bash -c 'source /home/${USER_NAME}/.bashrc' &&\
   npm --version &&\
   node --version &&\
-  npx playwright install-deps chromium firefox
+  yes | npx playwright install-deps chromium firefox
 
 USER ${USER_NAME}
 
