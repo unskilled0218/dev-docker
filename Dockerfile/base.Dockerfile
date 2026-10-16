@@ -24,7 +24,10 @@ RUN mkdir -p /home/${USER_NAME}/.config/forgejo &&\
 USER ${USER_NAME}
 
 RUN --mount=type=secret,id=forgejo-token,target=/home/container/.config/forgejo/forgejo-token,uid=1000,required=true \
-  mkdir -p /home/${USER_NAME}/workdir &&\
-  curl -fsSL https://git.lan/dev/agents/raw/branch/main/scripts/setup.sh | bash
+  mkdir -p /home/${USER_NAME}/workdir
+
+RUN cat >> "/home/${USER_NAME}/.bashrc" <<EOF
+export PATH=/home/${USER_NAME}/.opencode/bin:\$PATH
+EOF
 
 WORKDIR /home/${USER_NAME}/workdir/project
