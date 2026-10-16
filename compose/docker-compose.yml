@@ -11,9 +11,8 @@ services:
     volumes:
       - ./:/home/container/workdir
       - /var/run/docker.sock:/var/run/docker.sock
-      - ~/.local/share/opencode:/home/container/.local/share/opencode
-      - ~/.local/state/opencode:/home/container/.local/state/opencode
-      - ~/.opencode/bin:/home/container/.opencode/bin
+      - ${HOME}/.local/share/opencode/opencode.db:/home/container/.local/share/opencode/opencode.db
+      - ${HOME}/.opencode/bin:/home/container/.opencode/bin
       - type: bind
         source: ${HOME}/.ssh
         target: /home/container/.ssh
