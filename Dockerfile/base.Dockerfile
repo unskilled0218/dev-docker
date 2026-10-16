@@ -22,7 +22,7 @@ USER ${USER_NAME}
 
 RUN --mount=type=secret,id=forgejo-token,target=/home/container/.config/forgejo/forgejo-token,uid=1000,required=true \
   mkdir -p /home/${USER_NAME}/workdir /home/${USER_NAME}/.config/forgejo \
-  /home/${USER_NAME}/.opencode /home/${USER_NAME}/.local/share /home/${USER_NAME}/.local/state
+  /home/${USER_NAME}/.opencode /home/${USER_NAME}/.local/share/opencode
 
 RUN cat >> "/home/${USER_NAME}/.bashrc" <<EOF
 export PATH=/home/${USER_NAME}/.opencode/bin:\$PATH
