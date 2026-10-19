@@ -23,6 +23,7 @@ RUN apt update &&\
   rm /tmp/android-tools.zip &&\
   yes | sdkmanager --licenses > /dev/null &&\
   sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;${ANDROID_NDK_VERSION}" &&\
+  rustup default stable &&\
   rustup target add aarch64-linux-android aarch64-unknown-linux-gnu &&\
   git clone --depth 1 --branch ${FLUTTER_VERSION} https://github.com/flutter/flutter.git ${FLUTTER_HOME} &&\
   chown -R ${USER_NAME}:${GROUP_NAME} ${FLUTTER_HOME}
