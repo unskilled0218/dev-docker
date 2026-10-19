@@ -71,7 +71,7 @@ if [[ "$publish" == true ]]; then
 fi
 
 images=(my-base npm-non-root android-dev tauri-dev switchboard)
-dockerfiles=(base npm android tauri)
+dockerfiles=(base npm android tauri switchboard)
 for index in "${!images[@]}"; do
   image="${images[$index]}"
   release_image="$image_prefix/$image:$tag"
