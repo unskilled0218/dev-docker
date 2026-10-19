@@ -70,7 +70,7 @@ if [[ "$publish" == true ]]; then
   docker --config "$temp_dir/docker-config" login "$registry" --username "$username" --password-stdin < "$token_file"
 fi
 
-images=(my-base npm-non-root android-dev tauri-dev)
+images=(my-base npm-non-root android-dev tauri-dev switchboard)
 dockerfiles=(base npm android tauri)
 for index in "${!images[@]}"; do
   image="${images[$index]}"
