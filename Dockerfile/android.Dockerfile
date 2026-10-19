@@ -5,11 +5,12 @@ ENV ANDROID_ADB_SERVER_ADDRESS=host.docker.internal
 ENV DEBIAN_FRONTEND=noninteractive
 
 ENV ANDROID_HOME=/home/${USER_NAME}/Android/Sdk
+ENV ANDROID_SDK_ROOT=/home/${USER_NAME}/Android/Sdk
 ENV GRADLE_HOME=/home/${USER_NAME}/gradle-9.5.1
 
 USER root
 
-RUN apt update && apt install -y openjdk-17-jdk
+RUN apt update && apt install -y openjdk-17-jdk-headless
 
 USER ${USER_NAME}
 
