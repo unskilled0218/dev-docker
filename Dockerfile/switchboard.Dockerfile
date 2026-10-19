@@ -13,7 +13,7 @@ USER root
 
 RUN apt update &&\
   apt install -y \
-  gcc-aarch64-linux-gnu clang cmake ninja-build pkg-config unzip wget xz-utils zip \
+  gcc-aarch64-linux-gnu clang cmake ninja-build pkg-config unzip wget xz-utils zip rustup \
   libasound2-dev libgtk-3-dev liblzma-dev libsecret-1-dev libsqlite3-dev libglu1-mesa &&\
   rm -rf /var/lib/apt/lists/* &&\
   mkdir -p ${ANDROID_HOME}/cmdline-tools &&\
