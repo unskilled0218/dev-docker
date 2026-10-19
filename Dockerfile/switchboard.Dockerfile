@@ -9,6 +9,8 @@ ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
 ENV PATH=${FLUTTER_HOME}/bin:${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools:${PATH}
 
+USER root
+
 RUN apt update &&\
   apt install -y \
   gcc-aarch64-linux-gnu clang cmake ninja-build pkg-config unzip wget xz-utils zip \
