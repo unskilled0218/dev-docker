@@ -10,8 +10,7 @@ RUN apt update &&\
   apt clean &&\
   rm -rf /var/lib/apt/lists/* &&\
   mkdir /home/${USER_NAME}/.npm-global  &&\
-  npm config set prefix '/home/${USER_NAME}/.npm-global' &&\/bin/bash -c 'source /home/${USER_NAME}/.bashrc' &&\
-  chown -R ${USER_NAME}:${GROUP_NAME} /home/${USER_NAME} &&\
+  npm config set prefix '/home/${USER_NAME}/.npm-global' &&\
   npm --version &&\
   node --version &&\
   yes | npx playwright install-deps chromium firefox
