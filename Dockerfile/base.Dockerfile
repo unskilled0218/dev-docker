@@ -21,7 +21,7 @@ RUN usermod -l ${USER_NAME} "$(getent passwd 1000 | cut -d: -f1)" &&\
 USER ${USER_NAME}
 
 RUN --mount=type=secret,id=forgejo-token,target=/home/container/.config/forgejo/forgejo-token,uid=1000,required=true \
-  mkdir -p /home/${USER_NAME}/workdir /home/${USER_NAME}/.config/forgejo \
+  mkdir -p /home/${USER_NAME}/workdir /home/${USER_NAME}/.config/forgejo &&\
   curl -fsSL https://git.lan/dev/agents/raw/branch/main/scripts/setup.sh | bash
 
 WORKDIR /home/${USER_NAME}/workdir/project
