@@ -15,7 +15,7 @@ RUN apt update &&\
   export PATH=/home/${USER_NAME}/.npm-global/bin:$PATH
   EOF &&\
   /bin/bash -c 'source /home/${USER_NAME}/.bashrc' &&\
-  chown -R ${USER_NAME}:${GROUP_NAME} /home/${USER_NAME}
+  chown -R ${USER_NAME}:${GROUP_NAME} /home/${USER_NAME} &&\
   npm --version &&\
   node --version &&\
   yes | npx playwright install-deps chromium firefox
