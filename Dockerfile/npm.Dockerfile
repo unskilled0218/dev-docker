@@ -11,8 +11,11 @@ RUN apt update &&\
   rm -rf /var/lib/apt/lists/* &&\
   mkdir /home/${USER_NAME}/.npm-global  &&\
   npm config set prefix '/home/${USER_NAME}/.npm-global' &&\
-  echo 'export PATH=/home/${USER_NAME}/.npm-global/bin:$PATH' >> /home/${USER_NAME}/.bashrc &&\
+  cat >> /home/${USER_NAME}/.bashrc <<'EOF'
+  export PATH=/home/${USER_NAME}/.npm-global/bin:$PATH
+  EOF &&\
   /bin/bash -c 'source /home/${USER_NAME}/.bashrc' &&\
+  chown -R ${USER_NAME}:${GROUP_NAME} /home/${USER_NAME}
   npm --version &&\
   node --version &&\
   yes | npx playwright install-deps chromium firefox
