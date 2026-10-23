@@ -14,7 +14,7 @@ RUN usermod -l ${USER_NAME} "$(getent passwd 1000 | cut -d: -f1)" &&\
   groupadd -g 988 docker &&\
   apt update &&\
   apt install -y \
-  git wget vim unzip curl jq build-essential &&\
+  git wget vim unzip curl build-essential &&\
   update-ca-certificates &&\
   curl -fsSL https://git.lan/dev/scripts/raw/branch/main/install-docker.sh | bash
 
