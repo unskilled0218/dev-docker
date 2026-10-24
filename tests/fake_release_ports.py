@@ -62,9 +62,14 @@ def package_versions(name):
   if package is None:
     return []
   repository = None if state.get("hide_links") else package["repository"]
-  return [{"id": index + 1, "name": name, "type": "container", "version": version,
+  identities = state.setdefault("package_version_ids", {})
+  for version in package["versions"]:
+    key = json.dumps([name, version])
+    if key not in identities:
+      identities[key] = max(identities.values(), default=0) + 1
+  return [{"id": identities[json.dumps([name, version])], "name": name, "type": "container", "version": version,
            "owner": state["namespace"], "repository": repository}
-          for index, version in enumerate(package["versions"])]
+          for version in package["versions"]]
 
 
 def verify_proxy_config():
@@ -214,6 +219,14 @@ elif tool == "curl":
     body = state["namespace"]
   elif route == "/api/v1/repos/dev/dev-docker":
     body = state["repository"]
+  elif route == "/api/v1/packages/dev":
+    assert method == "GET"
+    query = parse_qs(url.query)
+    assert query["type"] == ["container"] and query["limit"] == ["100"]
+    name, page = query["q"][0], int(query["page"][0])
+    records = [record for package in sorted(state["packages"]) if name.lower() in package.lower()
+               for record in package_versions(package)]
+    body = records[(page - 1) * 100:page * 100]
   elif route.startswith("/api/v1/packages/dev/container/"):
     parts = route.split("/")
     name = parts[6]
@@ -237,6 +250,10 @@ elif tool == "curl":
       page = int(parse_qs(url.query)["page"][0])
       records = state.get("package_records", {}).get(name, package_versions(name))
       body = records[(page - 1) * 100:page * 100]
+      # v28 middleware resolves the named package before listing its versions;
+      # v1.24.7 only resolves descriptors for version-specific paths.
+      if name not in state["packages"] and state["server_version"]["version"] == "28.2.0":
+        code, body = 404, {"message": "package does not exist"}
       if state.get("repeat_package_page"):
         body = records[:100]
   elif route.startswith("/api/v1/repos/dev/dev-docker/releases"):

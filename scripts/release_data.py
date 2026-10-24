@@ -313,11 +313,15 @@ def positive_id(value):
   return type(value) is int and value > 0
 
 
-def api_read(work, config, *segments, query=None):
+def api_response(work, config, *segments, query=None):
   path = "/api/v1/" + "/".join(quote(segment, safe="") for segment in segments)
   if query is not None:
     path += "?" + urlencode(query)
-  status, _, value = http(work, "GET", config["gitea"] + path)
+  return http(work, "GET", config["gitea"] + path)
+
+
+def api_read(work, config, *segments, query=None):
+  status, _, value = api_response(work, config, *segments, query=query)
   require(status == 200, f"Package/repository evidence unavailable (HTTP {status}); no absence or mutation authority")
   return decode(value)
 
@@ -368,21 +372,19 @@ def package_authority(work, config):
   return authority
 
 
-def package_association(work, config, authority, name):
-  """Return absent/unlinked/linked, never treating a failed read as absence."""
-  require(name in {item[0] for item in GRAPH}, "Unknown release package")
+def package_records(fetch, authority):
+  """Validate a bounded version inventory, including owner-search near matches."""
   fingerprints, identities, versions = set(), set(), set()
-  association, items = None, 0
+  items = 0
   for page in range(1, 1003):
     budget = release_io.INVENTORY_BUDGET
     if budget is not None:
       budget["pages"] = budget.get("pages", 0) + 1
       require(budget["pages"] <= 1002, "Package inventory page budget exceeded")
-    values = api_read(work, config, "packages", authority["owner"], "container", name,
-                      query={"page": page, "limit": 100})
+    values = fetch(page)
     require(isinstance(values, list) and len(values) <= 100, "Invalid package version listing")
     if not values:
-      return association or "absent"
+      return
     fingerprint = sha(canonical(values))
     require(fingerprint not in fingerprints, "Package pagination repeated")
     fingerprints.add(fingerprint)
@@ -393,27 +395,61 @@ def package_association(work, config, authority, name):
       require(budget["items"] <= 100000, "Package inventory item budget exceeded")
     for value in values:
       require(isinstance(value, dict) and positive_id(value.get("id")) and value["id"] not in identities and
-              text(value.get("version")) and value["version"] not in versions and
-              value.get("name") == name and value.get("type") == "container" and
+              text(value.get("version")) and text(value.get("name")) and value.get("type") == "container" and
+              (value["name"].lower(), value["version"].lower()) not in versions and
               isinstance(value.get("owner"), dict) and type(value["owner"].get("id")) is int and
               value["owner"]["id"] == authority["owner_id"] and
               value["owner"].get("login") == authority["owner"] and "repository" in value,
               "Invalid package version identity or visibility evidence")
       identities.add(value["id"])
-      versions.add(value["version"])
-      repo = value["repository"]
-      current = "unlinked"
-      if repo is not None:
-        require(isinstance(repo, dict) and type(repo.get("id")) is int and
-                repo["id"] == authority["repository_id"] and repo.get("full_name") == authority["repository"] and
-                isinstance(repo.get("owner"), dict) and type(repo["owner"].get("id")) is int and
-                repo["owner"]["id"] == authority["owner_id"] and
-                repo["owner"].get("login") == authority["owner"],
-                "Foreign or unknown package association; inspect without reassignment")
-        current = "linked"
-      require(association is None or association == current, "Package version associations disagree")
-      association = current
+      versions.add((value["name"].lower(), value["version"].lower()))
+      yield value
   raise Refusal("Package inventory has no terminal empty page")
+
+
+def verify_package_absent(work, config, authority, name):
+  """A named-package 404 is not evidence; require a complete owner search.
+
+  Both pinned servers search all non-internal versions for the verified owner.
+  The q filter is case-insensitive and non-exact; internal-only records remain
+  possible and cannot authorize reassignment if linking later refuses.
+  """
+  def fetch(page):
+    return api_read(work, config, "packages", authority["owner"],
+                    query={"type": "container", "q": name, "page": page, "limit": 100})
+  for value in package_records(fetch, authority):
+    require(name in value["name"].lower(), "Invalid package search match")
+    require(value["name"].lower() != name,
+            "Named package unavailable (HTTP 404) but owner inventory contains it; no absence or mutation authority")
+
+
+def package_association(work, config, authority, name):
+  """Return absent/unlinked/linked, never treating a failed read as absence."""
+  require(name in {item[0] for item in GRAPH}, "Unknown release package")
+  def fetch(page):
+    status, _, value = api_response(work, config, "packages", authority["owner"], "container", name,
+                                   query={"page": page, "limit": 100})
+    if status == 404 and page == 1:
+      verify_package_absent(work, config, authority, name)
+      return []
+    require(status == 200, f"Package/repository evidence unavailable (HTTP {status}); no absence or mutation authority")
+    return decode(value)
+  association = None
+  for value in package_records(fetch, authority):
+    require(value["name"] == name, "Invalid package version name")
+    repo = value["repository"]
+    current = "unlinked"
+    if repo is not None:
+      require(isinstance(repo, dict) and type(repo.get("id")) is int and
+              repo["id"] == authority["repository_id"] and repo.get("full_name") == authority["repository"] and
+              isinstance(repo.get("owner"), dict) and type(repo["owner"].get("id")) is int and
+              repo["owner"]["id"] == authority["owner_id"] and
+              repo["owner"].get("login") == authority["owner"],
+              "Foreign or unknown package association; inspect without reassignment")
+      current = "linked"
+    require(association is None or association == current, "Package version associations disagree")
+    association = current
+  return association or "absent"
 
 
 def package_inventory(work, config, complete=False):
