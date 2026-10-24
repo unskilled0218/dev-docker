@@ -23,7 +23,7 @@ USER ${USER_NAME}
 RUN mkdir -p /home/${USER_NAME}/workdir &&\
   curl -fsSL https://git.lan/dev/agents/raw/branch/main/scripts/setup.sh | bash
 
-RUN --mount=type=secret,id=forgejo-token,target=/home/container/.config/forgejo/forgejo-token,uid=1000,required=true \
-  mkdir -p /home/${USER_NAME}/.config/forgejo
+RUN --mount=type=secret,id=token,target=/home/container/.config/git/token,uid=1000,required=true \
+  mkdir -p /home/${USER_NAME}/.config/git
 
 WORKDIR /home/${USER_NAME}/workdir/project

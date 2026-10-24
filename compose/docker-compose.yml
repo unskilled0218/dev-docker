@@ -21,8 +21,8 @@ services:
         bind:
           create_host_path: false
       - type: bind
-        source: ${HOME}/.config/forgejo/forgejo-token
-        target: /home/container/.config/forgejo/forgejo-token
+        source: ${HOME}/.config/git/token
+        target: /home/container/.config/git/token
         read_only: true
         bind:
           create_host_path: false
