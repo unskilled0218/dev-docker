@@ -37,7 +37,7 @@ Only AMD64 is supported: Android, Watchman, and Switchboard dependencies have ar
 
 ## Credentials and trust
 
-Credential-file precedence is nonempty `GIT_TOKEN`, then nonempty deprecated `FORGEJO_TOKEN_FILE`, then configured `token_file`. These variables contain file paths, never token values. The configured default remains `~/.config/forgejo/forgejo-token` for compatibility; you may explicitly configure `~/.config/git/token`. Username precedence is nonempty `GIT_USERNAME`, then nonempty deprecated `FORGEJO_USERNAME`, then configured `username`. Empty overrides are treated as unset.
+Credential-file precedence is nonempty `GIT_TOKEN`, then nonempty deprecated `FORGEJO_TOKEN_FILE`, then configured `token_file`, which defaults to `~/.config/git/token`. These variables contain file paths, never token values. Username precedence is nonempty `GIT_USERNAME`, then nonempty deprecated `FORGEJO_USERNAME`, then configured `username`. Empty overrides are treated as unset.
 
 Use a non-symlink, user-owned regular token file outside the repository, mode 0600 or 0400, containing a private repository/package-capable token. Never commit it or place it in command arguments, shell history, `.env`, build contexts, or logs. Both publication and build-only need it because the current base Dockerfile requests BuildKit secret ID `token` at `/home/container/.config/git/token`. The secret value goes to Docker login via stdin and to builds only through a private BuildKit secret file. The base setup's secret-mounted command currently only creates a directory; this release migration does not redesign that setup.
 

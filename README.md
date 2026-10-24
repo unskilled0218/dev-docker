@@ -9,6 +9,7 @@
 ```bash
 bash build-all.sh --validate
 bash build-all.sh --build-only
+bash build-all.sh
 ```
 
 Builds five AMD64 development images. `bash build-all.sh` publishes the configured version from clean, pushed `main`. See [image releases](docs/image-releases.md) for settings, private build-proxy preservation, credentials, recovery, and the separate native-readiness checklist. Offline verification does not certify live publication.

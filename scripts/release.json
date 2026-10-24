@@ -3,7 +3,7 @@
   "gitea": "https://git.lan",
   "repository": "dev/dev-docker",
   "username": "dev",
-  "token_file": "~/.config/forgejo/forgejo-token",
+  "token_file": "~/.config/git/token",
   "certificate_file": "/usr/local/share/ca-certificates/git.lanCA.crt",
   "notes": "docs/releases/0.1.1.md",
   "platforms": ["linux/amd64"],
