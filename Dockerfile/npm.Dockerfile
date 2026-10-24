@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=my-base:latest
+ARG BASE_IMAGE=base:latest
 FROM ${BASE_IMAGE}
 
 USER root

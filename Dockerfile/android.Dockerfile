@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=npm-non-root:latest
+ARG BASE_IMAGE=npm:latest
 FROM ${BASE_IMAGE}
 
 ENV ANDROID_ADB_SERVER_ADDRESS=host.docker.internal

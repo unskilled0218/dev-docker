@@ -12,7 +12,7 @@ bash build-all.sh --build-only
 bash build-all.sh
 ```
 
-Builds five AMD64 development images. `bash build-all.sh` publishes the configured version from clean, pushed `main`. See [image releases](docs/image-releases.md) for settings, private build-proxy preservation, credentials, recovery, and the separate native-readiness checklist. Offline verification does not certify live publication.
+Builds only the AMD64 `base` and `npm` development images. `bash build-all.sh` publishes version and `latest` tags from clean, pushed `main` and links both packages to this repository. Android, Tauri, and Switchboard Dockerfiles remain for manual use. See [image releases](docs/image-releases.md) for settings, package visibility, credentials, recovery, and verification limits.
 
 ## Notes
 

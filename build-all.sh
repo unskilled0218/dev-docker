@@ -62,7 +62,8 @@ if [[ "$mode" == publish ]]; then
   data staging-inventory "$work"
 fi
 data snapshot "$work" "$mode"
-images=(my-base npm-non-root android-dev tauri-dev switchboard)
+image_list=$(data images)
+mapfile -t images <<< "$image_list"
 logged_in=false
 for image in "${images[@]}"; do
   phase="prepare $image"
@@ -75,11 +76,16 @@ for image in "${images[@]}"; do
     data accept-image "$work" "$image" "$mode"
   fi
 done
-if [[ "$mode" == local ]]; then echo 'Built five local latest images; nothing published'; exit 0; fi
+if [[ "$mode" == local ]]; then echo "Built ${#images[@]} local latest images; nothing published"; exit 0; fi
 if [[ "$logged_in" == false ]]; then data login "$work"; fi
 # Only failed transports may be reconciled against fresh exact evidence. Input/resource
 # refusals never become mutation permission, and no failure trap rolls anything back.
 attempt() { local status; if "$@"; then return 0; else status=$?; fi; [[ "$status" == 2 ]] || stop 'Input/resource refusal; inspect remaining objects'; }
+for image in "${images[@]}"; do
+  phase="associate package $image"
+  attempt data link-package "$work" "$image"
+  data confirm-package "$work" "$image"
+done
 phase='tag publication'
 oid=$(data make-tag "$work")
 attempt data push-tag "$work" "$oid"

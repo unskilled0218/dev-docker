@@ -38,6 +38,8 @@ def die():
 
 def effect(kind, value):
   state["effects"].append([kind, value])
+  if kind == "link":
+    state.update(state.get("after_link", {}))
   if state.get("lose_response") == kind:
     state.pop("lose_response")
     die()
@@ -45,6 +47,24 @@ def effect(kind, value):
 
 def option(name):
   return args[args.index(name) + 1]
+
+
+def publish_version(name, version):
+  package = state["packages"].setdefault(name, {"versions": [], "repository": None})
+  if version not in package["versions"]:
+    package["versions"].append(version)
+
+
+def package_versions(name):
+  # Contract fixtures: upstream v1.24.7 and v28.2.0 ToPackage uses Version.ID,
+  # filters repository visibility, and keeps the link shared by all versions.
+  package = state["packages"].get(name)
+  if package is None:
+    return []
+  repository = None if state.get("hide_links") else package["repository"]
+  return [{"id": index + 1, "name": name, "type": "container", "version": version,
+           "owner": state["namespace"], "repository": repository}
+          for index, version in enumerate(package["versions"])]
 
 
 def verify_proxy_config():
@@ -122,7 +142,7 @@ elif tool == "docker":
     assert sorted(item.name for item in context.iterdir()) == ["Dockerfile", "git.lanCA.crt"]
     assert "test-secret" not in " ".join(args)
     assert not (context / "token").exists()
-    if short == "my-base":
+    if short == "base":
       secret = option("--secret")
       assert secret.startswith("id=token,src=")
       assert Path(secret.split("src=", 1)[1]).read_text() == state.get("token", "test-secret")
@@ -143,16 +163,19 @@ elif tool == "docker":
       local = {"Os": "linux", "Architecture": "amd64", "Id": config_digest, "Config": {"Labels": labels}}
       state["local_images"][name] = local
       state["local_images"][config_digest] = local
-      if state.get("wrong_parent") and short == "my-base":
+      if state.get("wrong_parent") and short == "base":
         state["local_images"][name]["Id"] = "sha256:" + "f" * 64
     else:
       image, tag = name.rsplit(":", 1)
       state["manifests"][image + "/" + tag] = manifest
       state["manifests"][image + "/" + prepared] = manifest
       state["blobs"][image + "/" + config_digest] = content
+      publish_version(short, tag)
     Path(option("--metadata-file")).write_text(json.dumps({"containerimage.digest": prepared,
                                                           "containerimage.config.digest": config_digest}))
     effect("build", short)
+    if short == "npm":
+      state.update(state.get("after_staging", {}))
   elif args[:2] == ["image", "inspect"]:
     print(json.dumps([state["local_images"][args[-1]]]))
   elif args[:3] == ["buildx", "imagetools", "create"]:
@@ -162,6 +185,7 @@ elif tool == "docker":
     if state.get("fail") == "promote":
       die()
     state["manifests"][image + "/" + alias] = manifest
+    publish_version(image.rsplit("/", 1)[-1], alias)
     effect("promote", target)
     if state.get("revert_promoted") and alias == "latest":
       # Simulate another writer after a confirmed promotion: the next inventory
@@ -175,7 +199,47 @@ elif tool == "curl":
   method = option("--request")
   route = unquote(url.path)
   code, body = 200, []
-  if route.startswith("/api/v1/repos/dev/dev-docker/releases"):
+  if route in state.get("responses", {}):
+    response = state["responses"][route]
+    code, body = response.get("code", 200), response.get("body")
+    if "raw" in response:
+      body = response["raw"].encode()
+    if response.get("transport_failure"):
+      die()
+  elif route == "/api/v1/version":
+    body = state["server_version"]
+  elif route == "/api/v1/user":
+    body = state["principal"]
+  elif route == "/api/v1/users/dev":
+    body = state["namespace"]
+  elif route == "/api/v1/repos/dev/dev-docker":
+    body = state["repository"]
+  elif route.startswith("/api/v1/packages/dev/container/"):
+    parts = route.split("/")
+    name = parts[6]
+    if method == "POST":
+      assert parts[7:] == ["-", "link", "dev-docker"], "Unlink/deletion is never authorized"
+      package = state["packages"].get(name)
+      if package is None:
+        code = 404
+      elif package["repository"] is not None:
+        code = 400  # LinkToRepository refuses an existing association.
+      elif state["namespace"]["id"] != state["repository"]["owner"]["id"]:
+        code = 403
+      elif state.get("fail") in ("link", "link:" + name):
+        die()
+      else:
+        package["repository"] = state["repository"]
+        code, body = 201, b""
+        effect("link", name)
+    else:
+      assert method == "GET" and len(parts) == 7, "Only exact version listing is used"
+      page = int(parse_qs(url.query)["page"][0])
+      records = state.get("package_records", {}).get(name, package_versions(name))
+      body = records[(page - 1) * 100:page * 100]
+      if state.get("repeat_package_page"):
+        body = records[:100]
+  elif route.startswith("/api/v1/repos/dev/dev-docker/releases"):
     if method == "POST":
       if state.get("fail") == "post":
         die()
@@ -199,7 +263,7 @@ elif tool == "curl":
     body = state["manifests" if kind == "manifests" else "blobs"].get(key)
     if body is None:
       code, body = 404, {"errors": [{"code": "MANIFEST_UNKNOWN"}]}
-    if state.get("malformed_fifth") and key == "git.lan/dev/switchboard/" + state["release_tag"]:
+    if state.get("malformed_second") and key == "git.lan/dev/npm/" + state["release_tag"]:
       body = b"not json"
   else:
     raise AssertionError("Unexpected HTTP route")

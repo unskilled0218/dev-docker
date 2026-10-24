@@ -2,7 +2,7 @@
 """Strict release data and state checks. Bash owns the mutation sequence.
 
 Based on container-release-template 0.4.0 at
-1d051b36888fd64d9bfcd49e8e09f504943b6a1a; adapted for one five-image release.
+1d051b36888fd64d9bfcd49e8e09f504943b6a1a; adapted for one two-image release.
 """
 
 import base64
@@ -16,7 +16,7 @@ import stat
 import subprocess
 import sys
 import time
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import quote, urlencode, urlsplit
 
 import release_io
 from release_io import (API_LIMIT, CONFIG_LIMIT, REF_LIMIT, SMALL_LIMIT, CommandFailed,
@@ -26,10 +26,10 @@ from release_io import (API_LIMIT, CONFIG_LIMIT, REF_LIMIT, SMALL_LIMIT, Command
 
 MARKER = b"dev-docker-release/1\n"
 GRAPH = [
-  ("my-base", "base", None), ("npm-non-root", "npm", "my-base"),
-  ("android-dev", "android", "npm-non-root"), ("tauri-dev", "tauri", "android-dev"),
-  ("switchboard", "switchboard", "android-dev"),
+  ("base", "base", None), ("npm", "npm", "base"),
 ]
+# Exact upstream contracts; newer/forked versions need characterization before use.
+PACKAGE_API_VERSIONS = {"1.24.7", "28.2.0"}
 
 
 def digest(value):
@@ -81,7 +81,7 @@ def settings(root):
   require(config["platforms"] == ["linux/amd64"], "Only linux/amd64 is supported")
   expected = [{"name": name, "dockerfile": "Dockerfile/" + file + ".Dockerfile", "parent": parent}
               for name, file, parent in GRAPH]
-  require(config["images"] == expected, "Expected the ordered five-image dependency graph")
+  require(config["images"] == expected, "Expected the ordered two-image dependency graph")
   for item in expected:
     content = read(regular(root, item["dockerfile"])).decode()
     if item["parent"]:
@@ -160,7 +160,8 @@ def init(root, work, mode):
     config["commit"] = source(root, config)
     config["body"] = normalized_notes(blob(root, config["commit"], config["notes"], SMALL_LIMIT), config["tag"])
   write(work / "settings.json", config)
-  write(work / "state.json", {"digests": {}, "predecessors": {}, "versions": {}, "latest": {}, "oid": None})
+  write(work / "state.json", {"digests": {}, "predecessors": {}, "versions": {}, "latest": {}, "oid": None,
+                             "links": {}, "link_attempts": [], "packages_ready": False})
 
 
 def credentials(root, work, config):
@@ -308,6 +309,157 @@ def labels_for(config):
           "dev.docker.release.certificate": config["certificate_hash"]}
 
 
+def positive_id(value):
+  return type(value) is int and value > 0
+
+
+def api_read(work, config, *segments, query=None):
+  path = "/api/v1/" + "/".join(quote(segment, safe="") for segment in segments)
+  if query is not None:
+    path += "?" + urlencode(query)
+  status, _, value = http(work, "GET", config["gitea"] + path)
+  require(status == 200, "Package/repository evidence unavailable; no absence or mutation authority")
+  return decode(value)
+
+
+def owner_record(value, owner, version):
+  require(isinstance(value, dict) and positive_id(value.get("id")) and value.get("login") == owner,
+          "Authenticated package owner identity required")
+  require(value.get("active") is True and value.get("restricted") is False and
+          value.get("prohibit_login") is False, "Active unrestricted package owner required")
+  # v1.24.7 has no User.type. v28.2.0 exposes it and distinguishes bots/orgs.
+  if version == "28.2.0":
+    require(value.get("type") == "User", "Individual package owner required")
+  return value["id"]
+
+
+def package_authority(work, config):
+  """A null repository is meaningful only to the verified individual owner.
+
+  Characterized upstream v1.24.7 and v28.2.0: convert/package.go filters
+  repositories by permission; owner permission is complete, and the link service
+  enforces equal namespace ownership and refuses an existing repository link.
+  """
+  version = api_read(work, config, "version")
+  require(isinstance(version, dict) and isinstance(version.get("version"), str) and
+          version["version"] in PACKAGE_API_VERSIONS,
+          "Unsupported Gitea package API version; characterize this version before publication")
+  version = version["version"]
+  owner = config["repository"].split("/")[0]
+  principal = owner_record(api_read(work, config, "user"), owner, version)
+  namespace = owner_record(api_read(work, config, "users", owner), owner, version)
+  require(namespace == principal and read(work / "login", 256).decode() == owner,
+          "Token principal, package namespace and registry login must be the same owner")
+  repo = api_read(work, config, "repos", *config["repository"].split("/"))
+  require(isinstance(repo, dict) and positive_id(repo.get("id")) and
+          repo.get("full_name") == config["repository"] and isinstance(repo.get("owner"), dict) and
+          type(repo["owner"].get("id")) is int and repo["owner"]["id"] == principal and
+          repo["owner"].get("login") == owner, "Package target repository identity differs")
+  require(repo.get("has_packages") is True and isinstance(repo.get("permissions"), dict) and
+          repo["permissions"].get("admin") is True,
+          "Enable repository Packages and provide owner repository access before publication")
+  authority = {"version": version, "owner": owner, "owner_id": principal,
+               "repository": config["repository"], "repository_id": repo["id"]}
+  captured = work / "package-authority.json"
+  if captured.exists():
+    require(document(captured) == authority, "Captured package authority changed")
+  else:
+    write(captured, authority)
+  return authority
+
+
+def package_association(work, config, authority, name):
+  """Return absent/unlinked/linked, never treating a failed read as absence."""
+  require(name in {item[0] for item in GRAPH}, "Unknown release package")
+  fingerprints, identities, versions = set(), set(), set()
+  association, items = None, 0
+  for page in range(1, 1003):
+    budget = release_io.INVENTORY_BUDGET
+    if budget is not None:
+      budget["pages"] = budget.get("pages", 0) + 1
+      require(budget["pages"] <= 1002, "Package inventory page budget exceeded")
+    values = api_read(work, config, "packages", authority["owner"], "container", name,
+                      query={"page": page, "limit": 100})
+    require(isinstance(values, list) and len(values) <= 100, "Invalid package version listing")
+    if not values:
+      return association or "absent"
+    fingerprint = sha(canonical(values))
+    require(fingerprint not in fingerprints, "Package pagination repeated")
+    fingerprints.add(fingerprint)
+    items += len(values)
+    require(items <= 100000, "Package inventory item budget exceeded")
+    if budget is not None:
+      budget["items"] = budget.get("items", 0) + len(values)
+      require(budget["items"] <= 100000, "Package inventory item budget exceeded")
+    for value in values:
+      require(isinstance(value, dict) and positive_id(value.get("id")) and value["id"] not in identities and
+              text(value.get("version")) and value["version"] not in versions and
+              value.get("name") == name and value.get("type") == "container" and
+              isinstance(value.get("owner"), dict) and type(value["owner"].get("id")) is int and
+              value["owner"]["id"] == authority["owner_id"] and
+              value["owner"].get("login") == authority["owner"] and "repository" in value,
+              "Invalid package version identity or visibility evidence")
+      identities.add(value["id"])
+      versions.add(value["version"])
+      repo = value["repository"]
+      current = "unlinked"
+      if repo is not None:
+        require(isinstance(repo, dict) and type(repo.get("id")) is int and
+                repo["id"] == authority["repository_id"] and repo.get("full_name") == authority["repository"] and
+                isinstance(repo.get("owner"), dict) and type(repo["owner"].get("id")) is int and
+                repo["owner"]["id"] == authority["owner_id"] and
+                repo["owner"].get("login") == authority["owner"],
+                "Foreign or unknown package association; inspect without reassignment")
+        current = "linked"
+      require(association is None or association == current, "Package version associations disagree")
+      association = current
+  raise Refusal("Package inventory has no terminal empty page")
+
+
+def package_inventory(work, config, complete=False):
+  previous_budget = release_io.INVENTORY_BUDGET
+  if previous_budget is None:
+    release_io.INVENTORY_BUDGET = {"deadline": time.monotonic() + 600, "bytes": 0}
+  try:
+    authority = package_authority(work, config)
+    state = document(work / "state.json")
+    observed = {}
+    for name, _, _ in GRAPH:
+      observed[name] = package_association(work, config, authority, name)
+      if complete or state.get("packages_ready") or name in state.get("links", {}):
+        require(observed[name] == "linked", "Required package association missing; inspect without repair")
+    return observed
+  finally:
+    release_io.INVENTORY_BUDGET = previous_budget
+
+
+def link_package(root, work, config, name):
+  observed = prewrite(guard, root, work, config)
+  state = document(work / "state.json")
+  require(set(state["digests"]) == {item[0] for item in GRAPH}, "Cannot link before all images verify")
+  require(observed["packages"].get(name) in ("linked", "unlinked"), "Staged package disappeared")
+  if observed["packages"][name] == "linked":
+    return
+  # All prerequisite reads have succeeded. Only a failed transport from this POST
+  # can enter Bash's lost-response reconciliation; prerequisite failures cannot.
+  state["link_attempts"].append(name)
+  write(work / "state.json", state)
+  owner, repo = config["repository"].split("/")
+  path = "/api/v1/" + "/".join(quote(part, safe="") for part in
+                                ("packages", owner, "container", name, "-", "link", repo))
+  status, _, _ = http(work, "POST", config["gitea"] + path)
+  require(status == 201, "Package link request not accepted; inspect without reassignment")
+
+
+def confirm_package(root, work, config, name):
+  observed = guard(root, work, config)
+  require(observed["packages"].get(name) == "linked", "Package link not confirmed; inspect without repair")
+  state = document(work / "state.json")
+  state["links"][name] = document(work / "package-authority.json")["repository_id"]
+  state["packages_ready"] = set(state["links"]) == {item[0] for item in GRAPH}
+  write(work / "state.json", state)
+
+
 def inventory(root, work, config):
   release_io.INVENTORY_BUDGET = {"deadline": time.monotonic() + 600, "bytes": 0}
   try:
@@ -438,6 +590,7 @@ def unchanged(root, work, config):
 
 
 def startup(root, work, config):
+  package_inventory(work, config)
   observed = inventory(root, work, config)
   state = document(work / "state.json")
   if observed["oid"] or observed["release"]:
@@ -483,6 +636,7 @@ def guard(root, work, config, completed=False, expected_oid=None, allow_release=
     require(actual in allowed, "Latest changed; no rollback authority")
     if completed:
       require(actual == state["digests"][name], "Completed latest differs")
+  observed["packages"] = package_inventory(work, config, complete=completed or bool(oid))
   return observed
 
 
@@ -588,6 +742,7 @@ def accept_image(work, config, name, local):
 
 def make_tag(root, work, config):
   guard(root, work, config)
+  package_inventory(work, config, complete=True)
   state = document(work / "state.json")
   require(set(state["digests"]) == {item[0] for item in GRAPH}, "Incomplete image set")
   for name, _, _ in GRAPH:
@@ -658,6 +813,9 @@ def dispatch(arguments):
     return 0
   if action == "locked":
     return locked(root, args)
+  if action == "images":
+    print("\n".join(item["name"] for item in settings(root)["images"]))
+    return 0
   if action == "lock-check":
     descriptor = int(os.environ["RELEASE_LOCK_FD"])
     path = root / ".release-operation.lock"
@@ -701,8 +859,13 @@ def dispatch(arguments):
              "--password-stdin"], CONFIG_LIMIT, input_data=read(work / "token", 4096))
   elif action == "make-tag":
     make_tag(root, work, config)
+  elif action == "link-package":
+    link_package(root, work, config, args[0])
+  elif action == "confirm-package":
+    confirm_package(root, work, config, args[0])
   elif action == "push-tag":
     prewrite(guard, root, work, config)
+    prewrite(package_inventory, work, config, True)
     require(args[0] == prewrite(tag_object, root, document(work / "identity.json")), "Unexpected tag push")
     git(root, "push", "--no-follow-tags", "origin", args[0] + ":refs/tags/" + config["tag"])
   elif action == "confirm-tag":
@@ -730,9 +893,12 @@ def dispatch(arguments):
     for name, _, _ in GRAPH:
       print(full_image(config, name) + "@" + state["digests"][name] + " (" + config["tag"] + ", latest)")
     print(config["gitea"] + "/" + config["repository"] + "/releases/tag/" + config["tag"])
+    print(config["gitea"] + "/" + config["repository"] + "/packages")
   elif action == "status":
     state = document(work / "state.json")
     print("Known tag: " + str(state["oid"]), file=sys.stderr)
+    print("Package links: " + canonical(state.get("links", {})).decode() +
+          "; attempted: " + canonical(state.get("link_attempts", [])).decode(), file=sys.stderr)
     for name, _, _ in GRAPH:
       print(name + ": " + canonical({key: state[key].get(name) for key in ("digests", "versions", "latest")}).decode(),
             file=sys.stderr)

@@ -64,8 +64,14 @@ class ReleaseFixture(unittest.TestCase):
     self.docker_config = self.root / "original docker"
     self.docker_config.mkdir()
     self.state_path = self.root / "state.json"
+    # Minimal real response fields from upstream Gitea v1.24.7/v28.2.0 schemas.
+    owner = {"id": 7, "login": "dev", "active": True, "restricted": False,
+             "prohibit_login": False, "type": "User"}
+    repository = {"id": 19, "full_name": "dev/dev-docker", "owner": owner,
+                  "has_packages": True, "permissions": {"admin": True}}
     self.store({"commit": commit, "release_tag": self.tag, "tags": {}, "release": None, "manifests": {}, "blobs": {},
-                "local_images": {}, "calls": [], "effects": []})
+                "local_images": {}, "calls": [], "effects": [], "packages": {}, "principal": owner,
+                "namespace": owner, "repository": repository, "server_version": {"version": "28.2.0"}})
     self.env = dict(os.environ, PATH=str(self.bin) + ":" + os.environ["PATH"],
                     TEST_STATE=str(self.state_path), REAL_GIT=self.real_git,
                     FORGEJO_TOKEN_FILE=str(self.token), BUILD_CERT_FILE=str(self.cert),
@@ -129,7 +135,7 @@ class LocalContractTests(ReleaseFixture):
         self.assert_refused_without_writes(self.run_script(*args))
     self.assertEqual(self.state()["calls"], [])
 
-  def test_build_only_loads_five_images_with_exact_local_parents(self):
+  def test_build_only_loads_two_images_with_exact_local_parents(self):
     self.assert_local_build()
     with self.subTest(version="2.4.6"):
       self.make_fixture("2.4.6")
@@ -138,7 +144,7 @@ class LocalContractTests(ReleaseFixture):
   def assert_local_build(self):
     self.assert_success(self.run_script("--build-only", self.tag))
     state = self.state()
-    self.assertEqual([effect[1] for effect in state["effects"]], [item[0] for item in data.GRAPH])
+    self.assertEqual([effect[1] for effect in state["effects"]], ["base", "npm"])
     self.assertFalse(any(call[0] == "curl" for call in state["calls"]))
     self.assertFalse(any(call[0] == "git" and "ls-remote" in call for call in state["calls"]))
     for name, _, _ in data.GRAPH:
@@ -160,7 +166,7 @@ class LocalContractTests(ReleaseFixture):
     self.change(wrong_parent=True)
     result = self.run_script("--build-only")
     self.assertNotEqual(result.returncode, 0)
-    self.assertEqual(self.state()["effects"], [["build", "my-base"]])
+    self.assertEqual(self.state()["effects"], [["build", "base"]])
     self.assertIn("metadata", result.stderr)
 
   def test_token_permissions_and_location_refuse(self):
@@ -185,10 +191,10 @@ class LocalContractTests(ReleaseFixture):
     self.assert_refused_without_writes(self.run_script())
 
   def test_build_failure_cleans_private_files(self):
-    self.change(fail="build:android-dev")
+    self.change(fail="build:npm")
     result = self.run_script("--build-only")
     self.assertNotEqual(result.returncode, 0)
-    self.assertEqual([value for kind, value in self.state()["effects"] if kind == "build"], ["my-base", "npm-non-root"])
+    self.assertEqual([value for kind, value in self.state()["effects"] if kind == "build"], ["base"])
     self.assertFalse(list(self.root.glob("dev-docker-release.*")))
     self.assertNotIn("test-secret", result.stdout + result.stderr)
 
@@ -272,7 +278,7 @@ class PublicationTests(ReleaseFixture):
     result = self.run_script()
     self.assert_success(result)
     state = self.state()
-    self.assertEqual(state["proxy_checks"], 6)
+    self.assertEqual(state["proxy_checks"], 3)
     self.assertEqual(config.read_bytes(), original)
     self.assertFalse(Path(state["private_config"]).exists())
     self.assertFalse(list(self.root.glob("dev-docker-release.*")))
@@ -316,7 +322,7 @@ class PublicationTests(ReleaseFixture):
         self.assertNotIn("synthetic-proxy-password", result.stdout + result.stderr)
         self.assertFalse(any(call[0] == "curl" for call in self.state()["calls"]))
 
-  def test_five_image_release_and_completed_read_only_retry(self):
+  def test_two_image_release_and_completed_read_only_retry(self):
     self.assert_release_and_retry()
     with self.subTest(version="2.4.6"):
       self.make_fixture("2.4.6")
@@ -327,8 +333,10 @@ class PublicationTests(ReleaseFixture):
     self.assert_success(first)
     state = self.state()
     kinds = [effect[0] for effect in state["effects"]]
-    self.assertEqual(kinds.count("build"), 5)
-    self.assertEqual(kinds.count("promote"), 10)
+    self.assertEqual(kinds.count("build"), 2)
+    self.assertEqual(kinds.count("promote"), 4)
+    self.assertEqual([value for kind, value in state["effects"] if kind == "link"], ["base", "npm"])
+    self.assertLess(max(index for index, kind in enumerate(kinds) if kind == "link"), kinds.index("tag"))
     self.assertLess(max(index for index, kind in enumerate(kinds) if kind == "build"), kinds.index("tag"))
     self.assertEqual(kinds[-1], "post")
     self.assertFalse(Path(state["private_config"]).exists())
@@ -342,19 +350,19 @@ class PublicationTests(ReleaseFixture):
     self.assertEqual(self.state()["effects"], [])
     self.assertFalse(any(call[0] == "curl" and "stage-" in call[-1] for call in self.state()["calls"]))
 
-  def test_fifth_image_orphan_alias_and_malformed_inventory_block_all_writes(self):
-    self.assert_fifth_image_refusals()
+  def test_second_image_orphan_alias_and_malformed_inventory_block_all_writes(self):
+    self.assert_second_image_refusals()
     with self.subTest(version="2.4.6"):
       self.make_fixture("2.4.6")
-      self.assert_fifth_image_refusals()
+      self.assert_second_image_refusals()
 
-  def assert_fifth_image_refusals(self):
+  def assert_second_image_refusals(self):
     manifest = {"schemaVersion": 2, "foreign": True}
-    self.change(manifests={"git.lan/dev/switchboard/" + self.tag: manifest})
+    self.change(manifests={"git.lan/dev/npm/" + self.tag: manifest})
     result = self.run_script()
     self.assert_refused_without_writes(result)
     self.assertIn("Orphan version alias", result.stderr)
-    self.change(manifests={}, malformed_fifth=True)
+    self.change(manifests={}, malformed_second=True)
     self.assert_refused_without_writes(self.run_script())
 
   def test_tag_only_and_release_only_refuse_without_login(self):
@@ -364,23 +372,23 @@ class PublicationTests(ReleaseFixture):
     self.assert_refused_without_writes(self.run_script())
 
   def test_staging_retry_reuses_verified_parents(self):
-    self.change(fail="build:android-dev")
+    self.change(fail="build:npm")
     self.assertNotEqual(self.run_script().returncode, 0)
     state = self.state()
-    self.assertEqual([value for kind, value in state["effects"] if kind == "build"], ["my-base", "npm-non-root"])
+    self.assertEqual([value for kind, value in state["effects"] if kind == "build"], ["base"])
     state.pop("fail")
     state["effects"] = []
     self.store(state)
     self.assert_success(self.run_script())
     self.assertEqual([value for kind, value in self.state()["effects"] if kind == "build"],
-                     ["android-dev", "tauri-dev", "switchboard"])
+                     ["npm"])
 
   def test_matching_orphan_version_alias_is_not_adopted(self):
-    self.change(fail="build:npm-non-root")
+    self.change(fail="build:npm")
     self.assertNotEqual(self.run_script().returncode, 0)
     state = self.state()
-    staged = next(value for key, value in state["manifests"].items() if "/my-base/stage-" in key)
-    state["manifests"]["git.lan/dev/my-base/" + self.tag] = staged
+    staged = next(value for key, value in state["manifests"].items() if "/base/stage-" in key)
+    state["manifests"]["git.lan/dev/base/" + self.tag] = staged
     state["effects"] = []
     state.pop("fail")
     self.store(state)
@@ -394,7 +402,7 @@ class PublicationTests(ReleaseFixture):
   def test_lost_promotion_response_reconciles_once(self):
     self.change(lose_response="promote")
     self.assert_success(self.run_script())
-    self.assertEqual(sum(kind == "promote" for kind, _ in self.state()["effects"]), 10)
+    self.assertEqual(sum(kind == "promote" for kind, _ in self.state()["effects"]), 4)
 
   def test_lost_release_response_reconciles_once(self):
     self.change(lose_response="post")
@@ -464,7 +472,7 @@ class DataBoundaryTests(ReleaseFixture):
     mutations = [original.replace('"schema": 1', '"schema": 1, "unknown": 1'),
                  original.replace('"schema": 1', '"schema": 1, "schema": 1'),
                  original.replace(self.notes_path, '../outside.md'),
-                 original.replace('"parent": "my-base"', '"parent": "android-dev"')]
+                 original.replace('"parent": "base"', '"parent": "android"')]
     for content in mutations:
       with self.subTest(content=content[:40]):
         path.write_text(content)
@@ -530,7 +538,7 @@ class DataBoundaryTests(ReleaseFixture):
   def test_registry_foreign_token_realm_refused(self):
     from unittest.mock import patch
     with patch.object(ports, "http", return_value=(401, {"www-authenticate": 'Bearer realm="https://foreign/token"'}, b"")) as http:
-      self.assertRaises(ports.Refusal, ports.registry, self.root, "https://git.lan", "git.lan/dev/my-base", "manifests", "latest")
+      self.assertRaises(ports.Refusal, ports.registry, self.root, "https://git.lan", "git.lan/dev/base", "manifests", "latest")
       self.assertEqual(http.call_count, 1)
 
   def test_guard_rejects_changed_confirmed_tag_before_any_write(self):

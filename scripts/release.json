@@ -5,13 +5,10 @@
   "username": "dev",
   "token_file": "~/.config/git/token",
   "certificate_file": "/usr/local/share/ca-certificates/git.lanCA.crt",
-  "notes": "docs/releases/0.1.1.md",
+  "notes": "docs/releases/0.1.2.md",
   "platforms": ["linux/amd64"],
   "images": [
-    {"name": "my-base", "dockerfile": "Dockerfile/base.Dockerfile", "parent": null},
-    {"name": "npm-non-root", "dockerfile": "Dockerfile/npm.Dockerfile", "parent": "my-base"},
-    {"name": "android-dev", "dockerfile": "Dockerfile/android.Dockerfile", "parent": "npm-non-root"},
-    {"name": "tauri-dev", "dockerfile": "Dockerfile/tauri.Dockerfile", "parent": "android-dev"},
-    {"name": "switchboard", "dockerfile": "Dockerfile/switchboard.Dockerfile", "parent": "android-dev"}
+    {"name": "base", "dockerfile": "Dockerfile/base.Dockerfile", "parent": null},
+    {"name": "npm", "dockerfile": "Dockerfile/npm.Dockerfile", "parent": "base"}
   ]
 }
