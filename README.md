@@ -1,10 +1,17 @@
 # dev docker
 
+- [dev docker](#dev-docker)
+  - [Notes](#notes)
+    - [Android](#android)
+    - [Tauri](#tauri)
+    - [RN run android on linux](#rn-run-android-on-linux)
+
 ```bash
-bash build-all.sh
+bash build-all.sh --validate
+bash build-all.sh --build-only
 ```
 
-Builds all images and publishes Forgejo packages. See [image releases](docs/image-releases.md) for tags, credentials, and build-only usage.
+Builds five AMD64 development images. `bash build-all.sh` publishes the configured version from clean, pushed `main`. See [image releases](docs/image-releases.md) for settings, credentials, recovery, and the separate native-readiness checklist. Offline verification does not certify live publication.
 
 ## Notes
 

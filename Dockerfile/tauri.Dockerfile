@@ -1,4 +1,5 @@
-FROM android-dev:latest
+ARG BASE_IMAGE=android-dev:latest
+FROM ${BASE_IMAGE}
 
 ENV WEBKIT_DISABLE_COMPOSITING_MODE=1
 ENV ANDROID_ADB_SERVER_ADDRESS=host.docker.internal

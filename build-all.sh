@@ -1,93 +1,101 @@
-#!/bin/bash
-set -euo pipefail
+#!/usr/bin/env bash
+set -Eeuo pipefail
+set +x
+export PYTHONDONTWRITEBYTECODE=1
 
 usage() {
-  echo "Usage: bash build-all.sh [--build-only] [TAG]"
+  echo 'Usage: bash build-all.sh [--validate | --build-only] [v<VERSION>]'
+  echo 'No arguments publishes VERSION from clean, pushed main. --help (-h) shows usage.'
+  echo 'A positional tag is a deprecated assertion and must exactly match v<VERSION>.'
 }
-
-fail() {
-  echo "Error: $*" >&2
+stop() {
+  echo "Release stopped (${phase:-arguments}): $*" >&2
+  if [[ -n "${work:-}" && -f "$work/state.json" ]]; then data status "$work" || true; fi
   exit 1
 }
 
-publish=true
-tag=latest
-tag_set=false
+mode=publish
+tag=''
+flag=''
 for arg in "$@"; do
   case "$arg" in
-    --build-only) publish=false ;;
-    --help|-h) usage; exit 0 ;;
-    -*) fail "Unknown option: $arg" ;;
-    *)
-      [[ "$tag_set" == false ]] || fail "Only one tag is allowed."
-      tag="$arg"
-      tag_set=true
-      ;;
+    --help|-h) [[ $# == 1 ]] || stop 'Help cannot be combined with other arguments'; usage; exit 0 ;;
+    --validate|--build-only)
+      [[ -z "$flag" ]] || stop 'Duplicate or combined modes'
+      flag=$arg
+      if [[ "$arg" == --validate ]]; then mode=validate; else mode=local; fi ;;
+    -*) stop 'Unknown option' ;;
+    *) [[ -z "$tag" && -n "$arg" ]] || stop 'Only one nonempty tag is allowed'; tag=$arg ;;
   esac
 done
-[[ "$tag" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]] || fail "Invalid image tag: $tag"
-
-project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-remote="$(git -C "$project_dir" remote get-url origin)"
-case "$remote" in
-  ssh://*|https://*|http://*)
-    address="${remote#*://}"
-    authority="${address%%/*}"
-    registry="${authority##*@}"
-    path="${address#*/}"
-    # SSH ports are not registry ports; Forgejo's registry uses HTTPS.
-    [[ "$remote" != ssh://* ]] || registry="${registry%%:*}"
-    ;;
-  *@*:*)
-    address="${remote#*@}"
-    registry="${address%%:*}"
-    path="${address#*:}"
-    ;;
-  *) fail "Origin must be an SSH or HTTP(S) Forgejo remote." ;;
-esac
-path="${path%.git}"
-[[ "$registry" != "" && "$path" =~ ^([^/]+)/([^/]+)$ ]] || fail "Origin must identify an owner and repository."
-owner="${BASH_REMATCH[1]}"
-repo="${BASH_REMATCH[2]}"
-source_url="https://$registry/$owner/$repo"
-image_prefix="${registry,,}/${owner,,}"
-username="${FORGEJO_USERNAME:-$owner}"
-token_file="${FORGEJO_TOKEN_FILE:-$HOME/.config/forgejo/forgejo-token}"
-cert_file="${BUILD_CERT_FILE:-/usr/local/share/ca-certificates/git.lanCA.crt}"
-
-command -v docker >/dev/null || fail "Docker is required."
-[[ -s "$token_file" && -r "$token_file" ]] || fail "Cannot read Forgejo token: $token_file"
-[[ -r "$cert_file" ]] || fail "Cannot read existing build certificate: $cert_file"
-docker info >/dev/null
-
-temp_dir="$(mktemp -d)"
-trap 'rm -rf -- "$temp_dir"' EXIT
-mkdir -p "$temp_dir/context/Dockerfile" "$temp_dir/docker-config"
-cp "$project_dir"/Dockerfile/*.Dockerfile "$temp_dir/context/Dockerfile/"
-cp "$cert_file" "$temp_dir/context/git.lanCA.crt"
-
-if [[ "$publish" == true ]]; then
-  docker --config "$temp_dir/docker-config" login "$registry" --username "$username" --password-stdin < "$token_file"
+[[ "$mode" != validate || -z "$tag" ]] || stop 'Validation cannot be combined with a tag'
+root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+command -v python3 >/dev/null || stop 'Install Python 3.11 or later (standard library only)'
+data() { python3 -B "$root/scripts/release_data.py" "$1" "$root" "${@:2}"; }
+if [[ -n "$tag" ]]; then data settings "$tag"; else data settings; fi
+[[ "$mode" != validate ]] || exit 0
+for tool in git docker; do command -v "$tool" >/dev/null || stop "Install required command: $tool"; done
+if [[ "$mode" == publish ]]; then command -v curl >/dev/null || stop 'Install curl'; fi
+if [[ -z "${RELEASE_LOCK_FD:-}" ]]; then exec python3 -B "$root/scripts/release_data.py" locked "$root" "$@"; fi
+data lock-check
+umask 077
+work=$(mktemp -d "${TMPDIR:-/tmp}/dev-docker-release.XXXXXXXX")
+phase='local preflight'
+cleanup() { rm -rf -- "$work"; }
+trap cleanup EXIT
+trap 'echo "Incomplete/uncertain during $phase; inspect exact remote objects without rollback" >&2; data status "$work" || true' ERR
+trap 'echo "Interrupted during $phase; inspect without rollback" >&2; data status "$work" || true; exit 130' INT
+trap 'echo "Interrupted during $phase; inspect without rollback" >&2; data status "$work" || true; exit 143' TERM
+data init "$work" "$mode"
+data builder "$work" "$mode"
+data credentials "$work"
+if [[ "$mode" == publish ]]; then
+  original_docker_config=$(data docker-origin "$work")
+  export BUILDX_CONFIG=${BUILDX_CONFIG:-$original_docker_config/buildx}
+  # Relative paths keep the caller's working-directory meaning; this script never changes cwd.
+  data docker-auth "$work"
+  export DOCKER_CONFIG="$work/docker"
+  data verify-builder "$work"
+  phase='read-only startup classification'
+  classification=$(data startup "$work")
+  if [[ "$classification" == completed ]]; then data summary "$work"; exit 0; fi
+  data staging-inventory "$work"
 fi
-
+data snapshot "$work" "$mode"
 images=(my-base npm-non-root android-dev tauri-dev switchboard)
-dockerfiles=(base npm android tauri switchboard)
-for index in "${!images[@]}"; do
-  image="${images[$index]}"
-  release_image="$image_prefix/$image:$tag"
-  options=()
-  if [[ "$index" == 0 ]]; then
-    options+=(--secret "id=forgejo-token,src=$token_file")
+logged_in=false
+for image in "${images[@]}"; do
+  phase="prepare $image"
+  action=$(data prepare-image "$work" "$image" "$mode")
+  if [[ "$action" == build ]]; then
+    if [[ "$mode" == publish && "$logged_in" == false ]]; then data login "$work"; logged_in=true; fi
+    phase="build $image"
+    echo "Building $image ($mode)"
+    data build "$work"
+    data accept-image "$work" "$image" "$mode"
   fi
-  echo "Building $release_image"
-  DOCKER_BUILDKIT=1 docker build "${options[@]}" \
-    --label "org.opencontainers.image.source=$source_url" \
-    -t "$image:latest" -t "$release_image" \
-    -f "$temp_dir/context/Dockerfile/${dockerfiles[$index]}.Dockerfile" "$temp_dir/context"
 done
-
-if [[ "$publish" == true ]]; then
-  for image in "${images[@]}"; do
-    docker --config "$temp_dir/docker-config" push "$image_prefix/$image:$tag"
+if [[ "$mode" == local ]]; then echo 'Built five local latest images; nothing published'; exit 0; fi
+if [[ "$logged_in" == false ]]; then data login "$work"; fi
+# Only failed transports may be reconciled against fresh exact evidence. Input/resource
+# refusals never become mutation permission, and no failure trap rolls anything back.
+attempt() { local status; if "$@"; then return 0; else status=$?; fi; [[ "$status" == 2 ]] || stop 'Input/resource refusal; inspect remaining objects'; }
+phase='tag publication'
+oid=$(data make-tag "$work")
+attempt data push-tag "$work" "$oid"
+data confirm-tag "$work" "$oid"
+release_tag=$(data field "$work" tag)
+for image in "${images[@]}"; do
+  for alias in "$release_tag" latest; do
+    phase="promote $image:$alias"
+    action=$(data promote-args "$work" "$image" "$alias")
+    if [[ "$action" == promote ]]; then attempt data build "$work"; fi
+    data confirm-alias "$work" "$image" "$alias"
   done
-fi
+done
+phase='release creation'
+data payload "$work"
+attempt data post-release "$work"
+phase='final verification'
+data finish "$work"
+data summary "$work"
