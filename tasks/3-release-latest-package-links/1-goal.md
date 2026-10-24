@@ -10,7 +10,8 @@
 - I wanna see packages in dev/dev-docker page
 - my-base -> base, npm-non-root -> npm, android-dev -> android
 - remove tauri and switchboard from release phase. leave Dockerfile
+- also remove android from release phase
 
 ## goal
 
-Update the image release workflow to publish only `base`, `npm`, and `android` with the `latest` tag and associate their Gitea packages with `dev/dev-docker` so they appear on that repository's Packages page. Rename image packages from `my-base` to `base`, `npm-non-root` to `npm`, and `android-dev` to `android`, keeping dependent image references consistent. Exclude Tauri and Switchboard from the release phase while retaining their Dockerfiles.
+Update the image release workflow to publish only `base` and `npm` with the `latest` tag and associate their Gitea packages with `dev/dev-docker` so they appear on that repository's Packages page. Rename image packages from `my-base` to `base`, `npm-non-root` to `npm`, and `android-dev` to `android`, keeping dependent image references consistent. Exclude Android, Tauri, and Switchboard from the release phase while retaining their Dockerfiles.
