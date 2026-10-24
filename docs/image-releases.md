@@ -3,6 +3,7 @@
 - [Commands](#commands)
 - [Settings and prerequisites](#settings-and-prerequisites)
 - [Credentials and trust](#credentials-and-trust)
+- [Build proxies](#build-proxies)
 - [Publication and recovery](#publication-and-recovery)
 - [Offline verification](#offline-verification)
 - [Native readiness checklist](#native-readiness-checklist)
@@ -18,7 +19,7 @@ bash build-all.sh
 
 Validation needs Bash and Python 3.11+ only. It reads local settings, version, notes, and source paths without credentials, locks, temporary files, Docker, or network access. Commands work from any directory.
 
-No arguments publishes root `VERSION` as `v<VERSION>` and `latest` for all images. Update `VERSION`, `scripts/release.json`'s notes path, and matching committed release notes together; commit and push clean `main` before publication. This repository starts at 0.1.0; README has no duplicate version source.
+No arguments publishes root `VERSION` as `v<VERSION>` and `latest` for all images. Update `VERSION`, `scripts/release.json`'s notes path, and matching committed release notes together; commit and push clean `main` before publication. Historical notes remain in `docs/releases/`; README has no duplicate version source.
 
 `--help` and `-h` show usage using Bash only. A positional tag is deprecated but accepted only when it exactly equals `v<VERSION>`, with or without `--build-only`, in either order. Mismatched tags (including explicit `latest`), duplicate tags/flags, unknown flags, and help/validation combined with other arguments are refused before external effects. There is no arbitrary-tag publication override.
 
@@ -44,6 +45,18 @@ The existing certificate defaults to `/usr/local/share/ca-certificates/git.lanCA
 
 Publication uses a private mode-0700 temporary directory with minimal Docker auth and copied connection metadata, never inherited registry helpers/auth. Original config-local CLI plugin discovery and Buildx state paths are preserved; Docker host/context and TLS environment variables remain selected. Relative paths keep caller working-directory semantics. Normal failure/exit/signals remove only run-owned temporary files, not images or remote records. SIGKILL cannot perform cleanup; inspect leftovers privately without broad deletion.
 
+## Build proxies
+
+Publication preserves validated `proxies` settings from the caller's Docker configuration in its private Docker config (directory mode 0700, file mode 0600). The complete map, including `default` and per-daemon entries, is copied without merging, endpoint guessing, or value expansion. Docker remains responsible for selecting default/endpoint settings and forwarding predefined proxy build arguments. Original config bytes remain unchanged; build-only uses the original config directly.
+
+Absent or JSON-null `proxies` means no configured proxies. Empty maps, empty per-daemon maps, and explicit empty string values are retained. Endpoint keys must be nonempty control-free strings; each entry must be a map containing only `httpProxy`, `httpsProxy`, `ftpProxy`, `noProxy`, and `allProxy`, with control-free string values. URLs, user information, comma-separated exclusions, CIDRs, wildcards, and empty overrides remain literal. This is not an HTTPS-only proxy URL validator, and `noProxy` is not parsed as a URL.
+
+Malformed, duplicate-key, oversized, or unsupported configuration is refused before registry login, staging builds/pushes, or Git/release publication. Diagnostics do not print proxy keys or values. Offline `--validate` deliberately does not inspect caller Docker configuration. The earlier builder bootstrap can have local effects; proxy validation does not promise otherwise.
+
+Proxy URLs can contain credentials or sensitive hostnames. Never print complete Docker config, proxy environments, or build arguments for troubleshooting. The copy stays private and is removed with other run-owned temporary files on normal exit/failure/signals; caller registry `auths`, `credsStore`, and `credHelpers` are still excluded. Proxy values are not added to release-script command arguments, source contexts, logs, public identity, or release notes. Treat any toolchain/debugging that independently prints build environment values as sensitive and outside this guarantee.
+
+Preserving client build proxies does not configure daemon proxies, Git/curl host networking, DNS, certificate trust, or BuildKit server networking. Native forwarding and actual connectivity still require the separately authorized checklist; offline tests establish preservation and refusal boundaries only. See [Docker CLI proxy configuration](https://docs.docker.com/engine/cli/proxy/) for Docker's selection semantics.
+
 ## Publication and recovery
 
 Publication locks `.release-operation.lock`, verifies source and target, inventories all final records and aliases, and classifies startup before any registry login or staging push. A failed/incomplete/oversized read is never permission to write. API inventories must end with a confirmed empty page; authenticated curl disables ambient config, follows no redirects, and refuses foreign registry token realms.
@@ -64,7 +77,7 @@ bash -n build-all.sh
 bash build-all.sh --validate
 ```
 
-Tests use temporary Git repositories and stateful fake command/HTTP boundaries. They check five-image ordering, digest identities, credential isolation, compatibility, failure/retry guards, and zero unauthorized writes. Passing offline checks establishes local implementation acceptance only, not native Buildx behavior, real image toolchain correctness, or production readiness.
+Tests use temporary Git repositories, test-owned version/tag/notes metadata independent of project releases, and stateful fake command/HTTP boundaries. They check five-image ordering, digest identities, credential/proxy isolation, compatibility, failure/retry guards, and zero unauthorized writes. Focused success, completed retry, and fifth-image refusal scenarios exercise two fixture versions without duplicating the full suite. Passing offline checks establishes local implementation acceptance only, not native Buildx behavior, real image toolchain correctness, or production readiness.
 
 ## Native readiness checklist
 
@@ -75,6 +88,7 @@ Run only with separate user authorization and existing prerequisites. This imple
 3. Compare context, Docker endpoint, TLS connection, and builder selection before/during isolation for host-only environment selection, explicit `default`, a nondefault context, and relative connection paths. Record which variants were actually exercised; do not infer untested TLS or remote behavior from a fake test.
 4. Use a private temporary context and unique local image names to build a minimal parent with a unique marker, load it using the supported Docker driver, inspect its ID, then build a child using the checked local tag as `BASE_IMAGE` and `--pull=false`. Verify the parent ID is unchanged before/after the child build, the child's filesystem contains that marker rather than a stale parent marker, and the child parent label records that ID. Use no production tags or pushes; only remove the exact test-owned files/images after inspection and authorization.
 5. With a separately selected container-backed builder, verify build-only refuses before any build. Restore any explicitly changed selection yourself; the script must not switch it. Record the actionable refusal.
+6. With synthetic, noncredential-bearing proxy settings and disposable local image names, compare default and per-daemon proxy build-argument behavior before/during the same private-auth isolation. Exercise explicit empty values and `noProxy` exclusions. Check only presence/expected-match booleans inside a minimal build; never dump proxy environments or full config, put proxy URLs in command arguments, or persist values in image labels, files, or release metadata. Record sanitized outcomes and untested endpoint variants. Do not use production login/pushes; real connectivity needs a separately approved test endpoint.
 
 A passing smoke checklist does not authorize or certify real publication. Actual five-image builds and production publishing need separate approval. Mutable downloaded setup scripts/packages mean source/digest identity is not reproducible bytes or runtime proof.
 

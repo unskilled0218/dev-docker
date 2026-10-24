@@ -3,11 +3,13 @@ import json
 import os
 from pathlib import Path
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 
 PROJECT = Path(__file__).resolve().parents[1]
@@ -18,15 +20,29 @@ import release_io as ports
 
 class ReleaseFixture(unittest.TestCase):
   def setUp(self):
+    self.make_fixture("1.2.3")
+
+  def make_fixture(self, version, source=PROJECT):
     self.temp = tempfile.TemporaryDirectory()
     self.addCleanup(self.temp.cleanup)
     self.root = Path(self.temp.name)
     self.project = self.root / "project with spaces"
     self.project.mkdir()
-    for name in ("build-all.sh", "VERSION", ".gitignore"):
-      shutil.copy(PROJECT / name, self.project / name)
-    for name in ("scripts", "Dockerfile", "docs"):
-      shutil.copytree(PROJECT / name, self.project / name)
+    for name in ("build-all.sh", ".gitignore"):
+      shutil.copy(source / name, self.project / name)
+    for name in ("scripts", "Dockerfile"):
+      shutil.copytree(source / name, self.project / name)
+    self.version = version
+    self.tag = "v" + self.version
+    self.notes_path = "docs/releases/fixture.md"
+    (self.project / "VERSION").write_text(self.version + "\n")
+    notes = self.project / self.notes_path
+    notes.parent.mkdir(parents=True)
+    notes.write_text("# Release " + self.tag + "\n\n- Test-owned release notes.\n")
+    settings = self.project / "scripts/release.json"
+    config = json.loads(settings.read_text())
+    config["notes"] = self.notes_path
+    settings.write_text(json.dumps(config))
     self.real_git = shutil.which("git")
     self.git("init", "--initial-branch=main")
     self.git("config", "user.email", "test@localhost")
@@ -48,7 +64,7 @@ class ReleaseFixture(unittest.TestCase):
     self.docker_config = self.root / "original docker"
     self.docker_config.mkdir()
     self.state_path = self.root / "state.json"
-    self.store({"commit": commit, "tags": {}, "release": None, "manifests": {}, "blobs": {},
+    self.store({"commit": commit, "release_tag": self.tag, "tags": {}, "release": None, "manifests": {}, "blobs": {},
                 "local_images": {}, "calls": [], "effects": []})
     self.env = dict(os.environ, PATH=str(self.bin) + ":" + os.environ["PATH"],
                     TEST_STATE=str(self.state_path), REAL_GIT=self.real_git,
@@ -81,6 +97,18 @@ class ReleaseFixture(unittest.TestCase):
     self.assertNotEqual(result.returncode, 0, result.stdout)
     self.assertEqual(self.state()["effects"], [], result.stderr)
 
+  def proxy_config(self):
+    return {
+      "default": {
+        "httpProxy": "http://proxy-user:synthetic-proxy-password@proxy.invalid:3128",
+        "httpsProxy": "http://proxy.invalid:3129",
+        "ftpProxy": "ftp://proxy.invalid:2121",
+        "noProxy": "localhost,*.internal.invalid,10.0.0.0/8,[::1]",
+        "allProxy": "socks5h://proxy.invalid:1080",
+      },
+      "tcp://test-host:2376": {"httpsProxy": "", "noProxy": "api.internal.invalid"},
+    }
+
 
 class LocalContractTests(ReleaseFixture):
   def test_validation_has_no_external_or_filesystem_effects(self):
@@ -94,14 +122,21 @@ class LocalContractTests(ReleaseFixture):
   def test_help_and_rejected_cli_never_call_external_ports(self):
     for args in [("--help",), ("-h",)]:
       self.assert_success(self.run_script(*args))
-    for args in [("latest",), ("v9.0.0",), ("one", "two"), ("--unknown",), ("--help", "v0.1.0"),
-                 ("--validate", "v0.1.0"), ("--validate", "--build-only"), ("--build-only", "--build-only")]:
+    mismatch = "v0.0.0" if self.tag != "v0.0.0" else "v0.0.1"
+    for args in [("latest",), (mismatch,), ("one", "two"), ("--unknown",), ("--help", self.tag),
+                 ("--validate", self.tag), ("--validate", "--build-only"), ("--build-only", "--build-only")]:
       with self.subTest(args=args):
         self.assert_refused_without_writes(self.run_script(*args))
     self.assertEqual(self.state()["calls"], [])
 
   def test_build_only_loads_five_images_with_exact_local_parents(self):
-    self.assert_success(self.run_script("--build-only", "v0.1.0"))
+    self.assert_local_build()
+    with self.subTest(version="2.4.6"):
+      self.make_fixture("2.4.6")
+      self.assert_local_build()
+
+  def assert_local_build(self):
+    self.assert_success(self.run_script("--build-only", self.tag))
     state = self.state()
     self.assertEqual([effect[1] for effect in state["effects"]], [item[0] for item in data.GRAPH])
     self.assertFalse(any(call[0] == "curl" for call in state["calls"]))
@@ -111,7 +146,7 @@ class LocalContractTests(ReleaseFixture):
     self.assertFalse(list(self.root.glob("dev-docker-release.*")))
 
   def test_build_only_accepts_reversed_assertion_order(self):
-    self.assert_success(self.run_script("v0.1.0", "--build-only"))
+    self.assert_success(self.run_script(self.tag, "--build-only"))
 
   def test_unsupported_builders_missing_platform_and_wrong_endpoint_refuse_before_build(self):
     for setting in ({"driver": "docker-container"}, {"driver": "remote"}, {"platforms": "linux/arm64"},
@@ -194,10 +229,101 @@ class LocalContractTests(ReleaseFixture):
         process.kill()
         process.communicate()
 
+  def test_build_only_keeps_original_proxy_configuration(self):
+    config = self.docker_config / "config.json"
+    original = json.dumps({"proxies": self.proxy_config()}).encode()
+    config.write_bytes(original)
+    self.assert_success(self.run_script("--build-only"))
+    self.assertEqual(config.read_bytes(), original)
+    self.assertFalse(any(kind == "login" for kind, _ in self.state()["effects"]))
+    self.assertFalse(list(self.root.glob("dev-docker-release.*")))
+
+  def test_fixture_ignores_changed_project_release_metadata(self):
+    source = self.root / "changed project source"
+    source.mkdir()
+    for name in ("build-all.sh", ".gitignore"):
+      shutil.copy(PROJECT / name, source / name)
+    for name in ("scripts", "Dockerfile"):
+      shutil.copytree(PROJECT / name, source / name)
+    (source / "VERSION").write_text("9.8.7\n")
+    settings = source / "scripts/release.json"
+    config = json.loads(settings.read_text())
+    config["notes"] = "docs/releases/9.8.7.md"
+    settings.write_text(json.dumps(config))
+    notes = source / config["notes"]
+    notes.parent.mkdir(parents=True)
+    notes.write_text("# Release v9.8.7\n\n- Changed project release.\n")
+    self.make_fixture("2.4.6", source)
+    self.assertEqual((self.project / "VERSION").read_text(), "2.4.6\n")
+    self.assertEqual(json.loads((self.project / "scripts/release.json").read_text())["notes"], self.notes_path)
+    self.assertFalse((self.project / config["notes"]).exists())
+    self.assert_success(self.run_script("--validate"))
+    self.assert_local_build()
+
 
 class PublicationTests(ReleaseFixture):
+  def test_publication_preserves_private_proxies_through_login_and_all_builds(self):
+    proxies = self.proxy_config()
+    config = self.docker_config / "config.json"
+    original = json.dumps({"proxies": proxies, "auths": {"foreign": {"auth": "foreign-auth"}},
+                           "credsStore": "foreign-helper", "credHelpers": {"git.lan": "foreign-helper"}}).encode()
+    config.write_bytes(original)
+    self.change(expected_proxy_hash=ports.sha(ports.canonical(proxies)))
+    result = self.run_script()
+    self.assert_success(result)
+    state = self.state()
+    self.assertEqual(state["proxy_checks"], 6)
+    self.assertEqual(config.read_bytes(), original)
+    self.assertFalse(Path(state["private_config"]).exists())
+    self.assertFalse(list(self.root.glob("dev-docker-release.*")))
+    self.assertNotIn("synthetic-proxy-password", result.stdout + result.stderr + json.dumps(state))
+    for key, value in proxies["default"].items():
+      self.assertNotIn(value, result.stdout + result.stderr)
+
+  def test_proxy_build_failure_cleans_private_copy_without_leaking_values(self):
+    proxies = self.proxy_config()
+    config = self.docker_config / "config.json"
+    original = json.dumps({"proxies": proxies}).encode()
+    config.write_bytes(original)
+    self.change(expected_proxy_hash=ports.sha(ports.canonical(proxies)), fail="build")
+    result = self.run_script()
+    self.assertNotEqual(result.returncode, 0)
+    state = self.state()
+    self.assertEqual(state["effects"], [["login", "git.lan"]])
+    self.assertEqual(state["proxy_checks"], 2)
+    self.assertFalse(Path(state["private_config"]).exists())
+    self.assertFalse(list(self.root.glob("dev-docker-release.*")))
+    self.assertEqual(config.read_bytes(), original)
+    self.assertNotIn("synthetic-proxy-password", result.stdout + result.stderr + json.dumps(state))
+
+  def test_invalid_proxy_config_refuses_before_publication_and_cleans_up(self):
+    invalid = [[], "synthetic-proxy-password", {"": {}}, {"default": None}, {"default": []},
+               {"default": {"unsupported": "synthetic-proxy-password"}}, {"default": {"httpsProxy": 1}},
+               {"default": {"httpsProxy": False}}, {"default": {"httpsProxy": None}},
+               {"default": {"httpsProxy": "synthetic-proxy-password\n"}}, {"bad\x7fendpoint": {}},
+               {"default": {"noProxy": "internal\x85invalid"}}]
+    documents = [json.dumps({"proxies": value}) for value in invalid]
+    documents += ['{"proxies":{"default":{"httpProxy":"synthetic-proxy-password","httpProxy":"duplicate"}}}',
+                  json.dumps({"proxies": {"default": {"httpsProxy": "x" * ports.CONFIG_LIMIT}}})]
+    config = self.docker_config / "config.json"
+    for index, content in enumerate(documents):
+      with self.subTest(case=index):
+        config.write_text(content)
+        result = self.run_script()
+        self.assert_refused_without_writes(result)
+        self.assertEqual(config.read_text(), content)
+        self.assertFalse(list(self.root.glob("dev-docker-release.*")))
+        self.assertNotIn("synthetic-proxy-password", result.stdout + result.stderr)
+        self.assertFalse(any(call[0] == "curl" for call in self.state()["calls"]))
+
   def test_five_image_release_and_completed_read_only_retry(self):
-    first = self.run_script("v0.1.0")
+    self.assert_release_and_retry()
+    with self.subTest(version="2.4.6"):
+      self.make_fixture("2.4.6")
+      self.assert_release_and_retry()
+
+  def assert_release_and_retry(self):
+    first = self.run_script(self.tag)
     self.assert_success(first)
     state = self.state()
     kinds = [effect[0] for effect in state["effects"]]
@@ -217,16 +343,24 @@ class PublicationTests(ReleaseFixture):
     self.assertFalse(any(call[0] == "curl" and "stage-" in call[-1] for call in self.state()["calls"]))
 
   def test_fifth_image_orphan_alias_and_malformed_inventory_block_all_writes(self):
+    self.assert_fifth_image_refusals()
+    with self.subTest(version="2.4.6"):
+      self.make_fixture("2.4.6")
+      self.assert_fifth_image_refusals()
+
+  def assert_fifth_image_refusals(self):
     manifest = {"schemaVersion": 2, "foreign": True}
-    self.change(manifests={"git.lan/dev/switchboard/v0.1.0": manifest})
-    self.assert_refused_without_writes(self.run_script())
+    self.change(manifests={"git.lan/dev/switchboard/" + self.tag: manifest})
+    result = self.run_script()
+    self.assert_refused_without_writes(result)
+    self.assertIn("Orphan version alias", result.stderr)
     self.change(manifests={}, malformed_fifth=True)
     self.assert_refused_without_writes(self.run_script())
 
   def test_tag_only_and_release_only_refuse_without_login(self):
-    self.change(tags={"v0.1.0": "a" * 40})
+    self.change(tags={self.tag: "a" * 40})
     self.assert_refused_without_writes(self.run_script())
-    self.change(tags={}, release={"tag_name": "v0.1.0", "draft": False, "prerelease": False})
+    self.change(tags={}, release={"tag_name": self.tag, "draft": False, "prerelease": False})
     self.assert_refused_without_writes(self.run_script())
 
   def test_staging_retry_reuses_verified_parents(self):
@@ -246,7 +380,7 @@ class PublicationTests(ReleaseFixture):
     self.assertNotEqual(self.run_script().returncode, 0)
     state = self.state()
     staged = next(value for key, value in state["manifests"].items() if "/my-base/stage-" in key)
-    state["manifests"]["git.lan/dev/my-base/v0.1.0"] = staged
+    state["manifests"]["git.lan/dev/my-base/" + self.tag] = staged
     state["effects"] = []
     state.pop("fail")
     self.store(state)
@@ -287,12 +421,49 @@ class PublicationTests(ReleaseFixture):
 
 
 class DataBoundaryTests(ReleaseFixture):
+  def test_proxy_maps_preserve_literal_values_without_merging(self):
+    complete = self.proxy_config()
+    for proxies in ({}, {"default": {}}, {"default": complete["default"]},
+                    {"tcp://test-host:2376": complete["tcp://test-host:2376"]}, complete):
+      with self.subTest(endpoints=list(proxies)):
+        self.assertEqual(data.docker_proxies(proxies), proxies)
+    self.assertIsNone(data.docker_proxies(None))
+
+  def test_private_proxy_config_handles_missing_null_empty_and_default_config_paths(self):
+    home = self.root / "test home"
+    home.mkdir()
+    original = home / ".docker"
+    original.mkdir()
+    cases = [("missing", None), ("no proxies", {}), ("null", {"proxies": None}),
+             ("empty", {"proxies": {}}), ("configured", {"proxies": self.proxy_config()})]
+    for index, (name, content) in enumerate(cases):
+      with self.subTest(case=name):
+        source = original / "config.json"
+        if content is not None:
+          source.write_text(json.dumps(content))
+        before = source.read_bytes() if source.exists() else None
+        work = self.root / ("private-" + str(index))
+        work.mkdir(mode=0o700)
+        environment = {"HOME": str(home)}
+        if index % 2:
+          environment["DOCKER_CONFIG"] = ""
+        with patch.dict(os.environ, environment, clear=True), patch.object(data, "command", return_value=b"default\n"):
+          data.docker_auth(work)
+        actual = json.loads((work / "docker/config.json").read_text())
+        if content is not None and content.get("proxies") is not None:
+          self.assertEqual(actual["proxies"], content["proxies"])
+        else:
+          self.assertNotIn("proxies", actual)
+        self.assertEqual(source.read_bytes() if source.exists() else None, before)
+        self.assertEqual(stat.S_IMODE((work / "docker").stat().st_mode), 0o700)
+        self.assertEqual(stat.S_IMODE((work / "docker/config.json").stat().st_mode), 0o600)
+
   def test_settings_reject_unknown_duplicate_traversal_and_changed_graph(self):
     path = self.project / "scripts/release.json"
     original = path.read_text()
     mutations = [original.replace('"schema": 1', '"schema": 1, "unknown": 1'),
                  original.replace('"schema": 1', '"schema": 1, "schema": 1'),
-                 original.replace('docs/releases/0.1.0.md', '../outside.md'),
+                 original.replace(self.notes_path, '../outside.md'),
                  original.replace('"parent": "my-base"', '"parent": "android-dev"')]
     for content in mutations:
       with self.subTest(content=content[:40]):
@@ -331,10 +502,13 @@ class DataBoundaryTests(ReleaseFixture):
     plugins.mkdir()
     (plugins / "docker-buildx").write_text("test plugin")
     (self.docker_config / "config.json").write_text(json.dumps({"auths": {"foreign": {"auth": "secret"}},
-      "credsStore": "helper", "credHelpers": {"git.lan": "helper"}, "cliPluginsExtraDirs": [str(plugins)]}))
+      "credsStore": "helper", "credHelpers": {"git.lan": "helper"}, "cliPluginsExtraDirs": [str(plugins)],
+      "proxies": self.proxy_config()}))
+    original = (self.docker_config / "config.json").read_bytes()
     work = self.root / "private"
     work.mkdir(mode=0o700)
-    with patch.dict(os.environ, self.env | {"DOCKER_CONTEXT": "selected"}):
+    relative = os.path.relpath(self.docker_config)
+    with patch.dict(os.environ, self.env | {"DOCKER_CONTEXT": "selected", "DOCKER_CONFIG": relative}):
       data.docker_auth(work)
     config = json.loads((work / "docker/config.json").read_text())
     self.assertEqual(config["auths"], {})
@@ -343,6 +517,10 @@ class DataBoundaryTests(ReleaseFixture):
     self.assertNotIn("credHelpers", config)
     self.assertEqual((work / "docker/cli-plugins").resolve(), plugins)
     self.assertEqual(config["cliPluginsExtraDirs"], [str(plugins)])
+    self.assertEqual(config["proxies"], self.proxy_config())
+    self.assertEqual((self.docker_config / "config.json").read_bytes(), original)
+    self.assertEqual(stat.S_IMODE((work / "docker").stat().st_mode), 0o700)
+    self.assertEqual(stat.S_IMODE((work / "docker/config.json").stat().st_mode), 0o600)
 
   def test_bounded_capture_refuses_overflow_and_drains_both_pipes(self):
     self.assertRaises(ports.Refusal, ports.command, [sys.executable, "-c", "print('x'*101)"], 100)

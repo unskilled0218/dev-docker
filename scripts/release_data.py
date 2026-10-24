@@ -187,14 +187,37 @@ def credentials(root, work, config):
   (work / "registry.curl").write_text('header = "Authorization: Basic ' + basic + '"\n')
 
 
+def docker_proxies(value):
+  """Validate proxy data without interpreting Docker's endpoint selection policy."""
+  if value is None:
+    return None
+  message = "Invalid Docker proxy configuration"
+  require(isinstance(value, dict), message)
+  fields = {"httpProxy", "httpsProxy", "ftpProxy", "noProxy", "allProxy"}
+  def safe_string(item):
+    return isinstance(item, str) and not re.search(r"[\x00-\x1f\x7f-\x9f]", item)
+  for endpoint, proxies in value.items():
+    require(safe_string(endpoint) and endpoint, message)
+    require(isinstance(proxies, dict) and set(proxies) <= fields, message)
+    require(all(safe_string(item) for item in proxies.values()), message)
+  return {endpoint: dict(proxies) for endpoint, proxies in value.items()}
+
+
 def docker_auth(work):
-  """Copy connection metadata, never caller registry auth/helper configuration."""
+  """Keep validated build/connection settings, never caller registry auth/helpers."""
   original = Path(os.environ.get("DOCKER_CONFIG") or str(Path.home() / ".docker")).resolve()
+  previous = document(original / "config.json", CONFIG_LIMIT) if (original / "config.json").is_file() else {}
+  require(isinstance(previous, dict), "Invalid original Docker configuration")
+  proxies = docker_proxies(previous.get("proxies"))
+  extra = previous.get("cliPluginsExtraDirs", [])
+  require(isinstance(extra, list) and all(text(path) for path in extra), "Invalid plugin search directories")
   context = command(["docker", "context", "show"], SMALL_LIMIT).decode().strip()
   require(text(context), "Invalid Docker context selection")
   private = work / "docker"
-  private.mkdir()
+  private.mkdir(mode=0o700)
   config = {"auths": {}}
+  if proxies is not None:
+    config["proxies"] = proxies
   if context != "default" or os.environ.get("DOCKER_CONTEXT"):
     config["currentContext"] = context
   if (original / "contexts").is_dir():
@@ -203,12 +226,9 @@ def docker_auth(work):
   if (original / "cli-plugins").is_dir():
     (private / "cli-plugins").symlink_to(original / "cli-plugins", target_is_directory=True)
   if (original / "config.json").is_file():
-    previous = document(original / "config.json", CONFIG_LIMIT)
-    require(isinstance(previous, dict), "Invalid original Docker configuration")
-    extra = previous.get("cliPluginsExtraDirs", [])
-    require(isinstance(extra, list) and all(text(path) for path in extra), "Invalid plugin search directories")
     config["cliPluginsExtraDirs"] = [str(Path(path).absolute()) for path in extra]
   write(private / "config.json", config)
+  (private / "config.json").chmod(0o600)
 
 
 def builder(work, local):

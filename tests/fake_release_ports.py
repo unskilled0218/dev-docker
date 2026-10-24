@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import stat
 import sys
 import time
 from urllib.parse import parse_qs, unquote, urlsplit
@@ -46,6 +47,18 @@ def option(name):
   return args[args.index(name) + 1]
 
 
+def verify_proxy_config():
+  if "expected_proxy_hash" not in state:
+    return
+  directory = Path(os.environ["DOCKER_CONFIG"])
+  config = json.loads((directory / "config.json").read_text())
+  assert digest(encoded(config.get("proxies"))) == state["expected_proxy_hash"], "Private proxy configuration differs"
+  assert "credsStore" not in config and "credHelpers" not in config, "Caller registry helper leaked"
+  assert stat.S_IMODE(directory.stat().st_mode) == 0o700, "Private config directory permissions differ"
+  assert stat.S_IMODE((directory / "config.json").stat().st_mode) == 0o600, "Private config permissions differ"
+  state["proxy_checks"] = state.get("proxy_checks", 0) + 1
+
+
 if tool == "git":
   actual = args[2:] if args[:1] == ["-C"] else args
   if actual[:2] == ["remote", "get-url"]:
@@ -80,6 +93,7 @@ elif tool == "docker":
   elif args[:2] == ["context", "inspect"]:
     print(json.dumps([{"Endpoints": {"docker": {"Host": state.get("host", "unix:///var/run/docker.sock")}}}]))
   elif args[:1] == ["login"]:
+    verify_proxy_config()
     if state.get("fail") == "login":
       die()
     assert sys.stdin.read() == state.get("token", "test-secret")
@@ -92,6 +106,7 @@ elif tool == "docker":
     state["buildx_config"] = os.environ.get("BUILDX_CONFIG")
     effect("login", "git.lan")
   elif args[:2] == ["buildx", "build"]:
+    verify_proxy_config()
     name = option("--tag")
     short = name.split("/")[-1].split(":")[0]
     if state.get("fail") in ("build", "build:" + short):
@@ -184,7 +199,7 @@ elif tool == "curl":
     body = state["manifests" if kind == "manifests" else "blobs"].get(key)
     if body is None:
       code, body = 404, {"errors": [{"code": "MANIFEST_UNKNOWN"}]}
-    if state.get("malformed_fifth") and key.endswith("switchboard/v0.1.0"):
+    if state.get("malformed_fifth") and key == "git.lan/dev/switchboard/" + state["release_tag"]:
       body = b"not json"
   else:
     raise AssertionError("Unexpected HTTP route")

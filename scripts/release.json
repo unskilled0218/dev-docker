@@ -5,7 +5,7 @@
   "username": "dev",
   "token_file": "~/.config/forgejo/forgejo-token",
   "certificate_file": "/usr/local/share/ca-certificates/git.lanCA.crt",
-  "notes": "docs/releases/0.1.0.md",
+  "notes": "docs/releases/0.1.1.md",
   "platforms": ["linux/amd64"],
   "images": [
     {"name": "my-base", "dockerfile": "Dockerfile/base.Dockerfile", "parent": null},
