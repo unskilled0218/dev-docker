@@ -58,7 +58,8 @@ class PackagePublicationTests(ReleaseFixture):
 
   def test_package_http_errors_and_unsupported_versions_refuse_without_writes(self):
     baseline = self.state()
-    cases = [{"responses": {"/api/v1/packages/dev/container/base": {"code": code, "body": []}}}
+    cases = [{"responses": {"/api/v1/packages/dev/container/base": {
+      "code": code, "body": {"message": "synthetic-http-body-secret"}}}}
              for code in (401, 403, 404, 302, 500)]
     cases += [{"server_version": {"version": "28.2.1"}},
               {"server_version": {"version": "28.2.0-custom"}},
@@ -68,7 +69,14 @@ class PackagePublicationTests(ReleaseFixture):
     for case in cases:
       with self.subTest(case=case):
         self.store(copy.deepcopy(baseline) | case)
-        self.assert_refused_without_writes(self.run_script())
+        result = self.run_script()
+        self.assert_refused_without_writes(result)
+        for response in case.get("responses", {}).values():
+          if "code" in response:
+            code = response["code"]
+            self.assertRegex(result.stderr, rf"HTTP(?: status:)? {code}\b")
+        self.assertNotIn("test-secret", result.stdout + result.stderr)
+        self.assertNotIn("synthetic-http-body-secret", result.stdout + result.stderr)
 
   def test_oversized_package_response_refuses_without_writes(self):
     self.change(responses={"/api/v1/packages/dev/container/base": {"raw": "x" * (ports.API_LIMIT + 1)}})

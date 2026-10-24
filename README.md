@@ -12,7 +12,7 @@ bash build-all.sh --build-only
 bash build-all.sh
 ```
 
-Builds only the AMD64 `base` and `npm` development images. `bash build-all.sh` publishes version and `latest` tags from clean, pushed `main` and links both packages to this repository. Android, Tauri, and Switchboard Dockerfiles remain for manual use. See [image releases](docs/image-releases.md) for settings, package visibility, credentials, recovery, and verification limits.
+Builds only the AMD64 `base` and `npm` development images. `bash build-all.sh` publishes version and `latest` tags from clean, pushed `main` and links both packages to this repository. Android, Tauri, and Switchboard Dockerfiles remain for manual use. See [image releases](docs/image-releases.md) for settings, package visibility, credentials, recovery, and verification limits, including [release error guidance](docs/image-releases.md#http-error-diagnostics).
 
 ## Notes
 

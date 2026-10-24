@@ -6,6 +6,7 @@
 - [Repository package visibility](#repository-package-visibility)
 - [Build proxies](#build-proxies)
 - [Publication and recovery](#publication-and-recovery)
+- [HTTP error diagnostics](#http-error-diagnostics)
 - [Offline verification](#offline-verification)
 - [Native readiness checklist](#native-readiness-checklist)
 - [Reference and limits](#reference-and-limits)
@@ -87,6 +88,14 @@ Only after both images and their repository package associations verify does the
 A fully completed retry verifies without build, login, tag push, promotion, or release creation. It ignores missing/foreign staging. A fresh attempt may reuse verified staging, but tag-only, release-only, orphan version aliases (even matching ones), conflicting identity, missing bound content, foreign final aliases, or partially promoted startup require manual review. Version aliases are never adoption authority. A lost response may be reconciled only against fresh exact evidence for that invocation's own attempted write.
 
 There is no cross-service atomic transaction or exactly-once build promise. On failure, inspect the reported phase, known digest/alias map, confirmed and attempted package links, exact source/configuration, Git tag, release, and both image aliases. Do not blindly retry ambiguous states. Do not delete evidence, rewrite tags, force pushes, roll back aliases or package links, change settings to force success, or expect automatic repair. Manual completion needs separate review/authorization. There is no retention, package reassignment, image deletion, or rollback stage.
+
+## HTTP error diagnostics
+
+HTTP status refusals include the parsed numeric status, for example `Release stopped: Unexpected HTTP status: 403` or `Package/repository evidence unavailable (HTTP 404); no absence or mutation authority`. The status helps distinguish server responses but does not identify the failing endpoint or prove the underlying cause. A `403` can indicate insufficient permissions; inspect your existing user/repository/package access rather than bypassing authentication or TLS.
+
+Diagnostics do not expose raw curl output, request URLs/query strings, credentials, credential paths, headers, payloads, or response bodies. Malformed status output remains `Invalid HTTP status`; transport failures and byte/time-limit refusals retain their own sanitized messages instead of claiming a valid server status. A valid HTTP response with malformed content is still a content/evidence failure, not an HTTP-status failure.
+
+Only error wording changes. The transport status allowlist, each caller's accepted responses, normal registry `401` challenges and confirmed `404` absence, exception types, and mutation/retry rules remain unchanged. Status refusals do not authorize retry or repair. Repeated Bash error-handler output may still appear; it does not mean the release was attempted repeatedly. This diagnostic change does not resolve server permissions or prove a successful publication. Release script hashes change with code, so preserve the existing identity rules rather than rewriting earlier release objects.
 
 ## Offline verification
 

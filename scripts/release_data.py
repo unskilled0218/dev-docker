@@ -318,7 +318,7 @@ def api_read(work, config, *segments, query=None):
   if query is not None:
     path += "?" + urlencode(query)
   status, _, value = http(work, "GET", config["gitea"] + path)
-  require(status == 200, "Package/repository evidence unavailable; no absence or mutation authority")
+  require(status == 200, f"Package/repository evidence unavailable (HTTP {status}); no absence or mutation authority")
   return decode(value)
 
 
@@ -448,7 +448,7 @@ def link_package(root, work, config, name):
   path = "/api/v1/" + "/".join(quote(part, safe="") for part in
                                 ("packages", owner, "container", name, "-", "link", repo))
   status, _, _ = http(work, "POST", config["gitea"] + path)
-  require(status == 201, "Package link request not accepted; inspect without reassignment")
+  require(status == 201, f"Package link request not accepted (HTTP {status}); inspect without reassignment")
 
 
 def confirm_package(root, work, config, name):
@@ -480,7 +480,7 @@ def inventory_scan(root, work, config):
       require(pages <= 1002 and remaining > 0, "Inventory time/page budget exceeded")
       url = config["gitea"] + "/api/v1/repos/" + config["repository"] + "/" + resource + "?" + urlencode({"page": page, "limit": 100})
       status, _, payload = http(work, "GET", url, seconds=min(60, remaining))
-      require(status == 200, "Inventory unavailable")
+      require(status == 200, f"Inventory unavailable (HTTP {status})")
       size += len(payload)
       values = decode(payload)
       require(isinstance(values, list) and len(values) <= 100, "Invalid inventory array")
@@ -880,7 +880,7 @@ def dispatch(arguments):
     prewrite(payload, root, work, config)
     status, _, _ = http(work, "POST", config["gitea"] + "/api/v1/repos/" + config["repository"] + "/releases",
                         payload=work / "payload.json")
-    require(status in (200, 201), "Release request not accepted")
+    require(status in (200, 201), f"Release request not accepted (HTTP {status})")
   elif action == "finish":
     guard(root, work, config, completed=True)
     state = document(work / "state.json")

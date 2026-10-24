@@ -167,7 +167,7 @@ def http(work, method, url, auth="api.curl", payload=None, limit=API_LIMIT, seco
             time.monotonic() < INVENTORY_BUDGET["deadline"], "Inventory byte/time budget exceeded")
   require(len(output["stdout"]) == 3 and output["stdout"].isdigit(), "Invalid HTTP status")
   code = int(output["stdout"])
-  require(code in (200, 201, 401, 404), "Unexpected HTTP status")
+  require(code in (200, 201, 401, 404), f"Unexpected HTTP status: {code}")
   headers = {}
   for line in output["headers"].decode("iso-8859-1").splitlines():
     if line.startswith("HTTP/"):
@@ -199,7 +199,7 @@ def registry(work, origin, image, kind, reference, missing=False):
     query = urlencode({"service": fields.get("service", ""), "scope": "repository:" + repository + ":pull"})
     url = origin + realm.path + "?" + (realm.query + "&" if realm.query else "") + query
     status, _, value = http(work, "GET", url, "registry.curl", limit=CONFIG_LIMIT)
-    require(status == 200, "Registry authentication failed")
+    require(status == 200, f"Registry authentication failed (HTTP {status})")
     token = decode(value)
     token = token.get("token", token.get("access_token")) if isinstance(token, dict) else None
     require(isinstance(token, str) and re.fullmatch(r"[A-Za-z0-9._~-]+", token), "Invalid registry token")
@@ -212,7 +212,7 @@ def registry(work, origin, image, kind, reference, missing=False):
             all(isinstance(error, dict) and error.get("code") in ("MANIFEST_UNKNOWN", "NAME_UNKNOWN") for error in errors),
             "Unrecognized registry absence evidence")
     return None
-  require(status == 200, "Registry evidence unavailable")
+  require(status == 200, f"Registry evidence unavailable (HTTP {status})")
   actual = sha(value)
   require(not reference.startswith("sha256:") or actual == reference, "Registry digest differs")
   require(headers.get("docker-content-digest", actual) == actual, "Registry digest header differs")
