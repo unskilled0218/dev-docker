@@ -68,8 +68,35 @@ def write(path, value):
   Path(path).write_bytes(canonical(value) + b"\n")
 
 
-def capture(arguments, limit=REF_LIMIT, seconds=60, input_data=None, streams=None):
+def stop_process(process):
+  try:
+    os.killpg(process.pid, signal.SIGTERM)
+  except ProcessLookupError:
+    pass
+  try:
+    process.wait(timeout=0.5)
+  except subprocess.TimeoutExpired:
+    try:
+      os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+      pass
+    process.wait(timeout=2)
+  # Reap descendants even if the immediate process already exited.
+  try:
+    os.killpg(process.pid, signal.SIGKILL)
+  except ProcessLookupError:
+    pass
+
+
+def capture(arguments, limit=REF_LIMIT, seconds=60, input_data=None, streams=None, observer=None):
   """Drain every pipe concurrently and terminate the owned group on interruption."""
+  def notify(action, *args):
+    try:
+      return getattr(observer, action)(*args)
+    except Refusal:
+      raise
+    except Exception:
+      raise Refusal("Build log observer failed") from None
   pipes = {name: os.pipe() for name in (streams or {})}
   arguments = [str(arg) for arg in arguments]
   for name, (_, writer) in pipes.items():
@@ -77,6 +104,8 @@ def capture(arguments, limit=REF_LIMIT, seconds=60, input_data=None, streams=Non
   selector = selectors.DefaultSelector()
   process = None
   try:
+    if observer is not None:
+      notify("start")
     environment = {key: value for key, value in os.environ.items() if key not in (
       "GIT_TOKEN", "GIT_USERNAME", "FORGEJO_TOKEN_FILE", "FORGEJO_USERNAME")}
     process = subprocess.Popen(arguments, stdin=subprocess.PIPE if input_data is not None else subprocess.DEVNULL,
@@ -96,9 +125,12 @@ def capture(arguments, limit=REF_LIMIT, seconds=60, input_data=None, streams=Non
       os.set_blocking(process.stdin.fileno(), False)
       selector.register(process.stdin.fileno(), selectors.EVENT_WRITE, "stdin")
     deadline = time.monotonic() + seconds
-    while selector.get_map():
+    while selector.get_map() or (observer is not None and notify("pending")):
       require(time.monotonic() < deadline, "Command timed out; outcome may be uncertain")
-      for key, _ in selector.select(min(0.1, max(0, deadline - time.monotonic()))):
+      if observer is not None:
+        notify("tick")
+      interval = 0.01 if observer is not None and notify("pending") else 0.1
+      for key, _ in selector.select(min(interval, max(0, deadline - time.monotonic()))):
         name = key.data
         if name == "stdin":
           if pending:
@@ -113,31 +145,38 @@ def capture(arguments, limit=REF_LIMIT, seconds=60, input_data=None, streams=Non
         chunk = os.read(key.fd, min(65536, limits[name] + 1 - len(buffers[name])))
         if not chunk:
           selector.unregister(key.fd)
+          if observer is not None and name in ("stdout", "stderr"):
+            notify("eof", name)
           continue
         buffers[name].extend(chunk)
         require(len(buffers[name]) <= limits[name], "Command output exceeds byte limit")
+        if observer is not None and name in ("stdout", "stderr"):
+          notify("feed", name, chunk)
     status = process.wait(timeout=max(0.001, deadline - time.monotonic()))
     return status, {name: bytes(value) for name, value in buffers.items()}
   finally:
     selector.close()
-    if process is not None:
-      try:
-        os.killpg(process.pid, signal.SIGKILL)
-      except ProcessLookupError:
-        pass
-      process.wait()
-      for pipe in (process.stdout, process.stderr, process.stdin):
-        if pipe is not None:
-          pipe.close()
-    for reader, _ in pipes.values():
-      os.close(reader)
-    if process is None:
-      for _, writer in pipes.values():
-        os.close(writer)
+    try:
+      if process is not None:
+        try:
+          stop_process(process)
+        finally:
+          for pipe in (process.stdout, process.stderr, process.stdin):
+            if pipe is not None:
+              pipe.close()
+      for reader, _ in pipes.values():
+        os.close(reader)
+      if process is None:
+        for _, writer in pipes.values():
+          os.close(writer)
+    finally:
+      if observer is not None:
+        notify("close")
 
 
-def command(arguments, limit=REF_LIMIT, seconds=60, input_data=None):
-  status, output = capture(arguments, limit, seconds, input_data)
+def command(arguments, limit=REF_LIMIT, seconds=60, input_data=None, observer=None):
+  options = {} if observer is None else {"observer": observer}
+  status, output = capture(arguments, limit, seconds, input_data, **options)
   if status:
     raise CommandFailed("Command failed: " + Path(arguments[0]).name)
   return output["stdout"]

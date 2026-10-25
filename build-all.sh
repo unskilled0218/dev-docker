@@ -38,6 +38,7 @@ for tool in git docker; do command -v "$tool" >/dev/null || stop "Install requir
 if [[ "$mode" == publish ]]; then command -v curl >/dev/null || stop 'Install curl'; fi
 if [[ -z "${RELEASE_LOCK_FD:-}" ]]; then exec python3 -B "$root/scripts/release_data.py" locked "$root" "$@"; fi
 data lock-check
+progress() { echo "Release phase: $*" >&2; }
 umask 077
 work=$(mktemp -d "${TMPDIR:-/tmp}/dev-docker-release.XXXXXXXX")
 phase='local preflight'
@@ -46,6 +47,7 @@ trap cleanup EXIT
 trap 'echo "Incomplete/uncertain during $phase; inspect exact remote objects without rollback" >&2; data status "$work" || true' ERR
 trap 'echo "Interrupted during $phase; inspect without rollback" >&2; data status "$work" || true; exit 130' INT
 trap 'echo "Interrupted during $phase; inspect without rollback" >&2; data status "$work" || true; exit 143' TERM
+progress 'local preflight'
 data init "$work" "$mode"
 data builder "$work" "$mode"
 data credentials "$work"
@@ -57,36 +59,46 @@ if [[ "$mode" == publish ]]; then
   export DOCKER_CONFIG="$work/docker"
   data verify-builder "$work"
   phase='read-only startup classification'
+  progress "$phase"
   classification=$(data startup "$work")
-  if [[ "$classification" == completed ]]; then data summary "$work"; exit 0; fi
+  if [[ "$classification" == completed ]]; then progress 'completed release verified; no publication needed'; data summary "$work"; exit 0; fi
+  progress 'staging inventory'
   data staging-inventory "$work"
 fi
+progress 'snapshot preparation'
 data snapshot "$work" "$mode"
 image_list=$(data images)
 mapfile -t images <<< "$image_list"
 logged_in=false
 for image in "${images[@]}"; do
   phase="prepare $image"
+  progress "$phase"
   action=$(data prepare-image "$work" "$image" "$mode")
   if [[ "$action" == build ]]; then
-    if [[ "$mode" == publish && "$logged_in" == false ]]; then data login "$work"; logged_in=true; fi
+    if [[ "$mode" == publish && "$logged_in" == false ]]; then progress 'registry login'; data login "$work"; logged_in=true; fi
     phase="build $image"
+    progress "$phase"
     echo "Building $image ($mode)"
     data build "$work"
+    progress "verify $image"
     data accept-image "$work" "$image" "$mode"
+  else
+    progress "reuse verified $image"
   fi
 done
 if [[ "$mode" == local ]]; then echo "Built ${#images[@]} local latest images; nothing published"; exit 0; fi
-if [[ "$logged_in" == false ]]; then data login "$work"; fi
+if [[ "$logged_in" == false ]]; then progress 'registry login'; data login "$work"; fi
 # Only failed transports may be reconciled against fresh exact evidence. Input/resource
 # refusals never become mutation permission, and no failure trap rolls anything back.
 attempt() { local status; if "$@"; then return 0; else status=$?; fi; [[ "$status" == 2 ]] || stop 'Input/resource refusal; inspect remaining objects'; }
 for image in "${images[@]}"; do
   phase="associate package $image"
+  progress "$phase"
   attempt data link-package "$work" "$image"
   data confirm-package "$work" "$image"
 done
 phase='tag publication'
+progress "$phase"
 oid=$(data make-tag "$work")
 attempt data push-tag "$work" "$oid"
 data confirm-tag "$work" "$oid"
@@ -94,14 +106,17 @@ release_tag=$(data field "$work" tag)
 for image in "${images[@]}"; do
   for alias in "$release_tag" latest; do
     phase="promote $image:$alias"
+    progress "$phase"
     action=$(data promote-args "$work" "$image" "$alias")
     if [[ "$action" == promote ]]; then attempt data build "$work"; fi
     data confirm-alias "$work" "$image" "$alias"
   done
 done
 phase='release creation'
+progress "$phase"
 data payload "$work"
 attempt data post-release "$work"
 phase='final verification'
+progress "$phase"
 data finish "$work"
 data summary "$work"

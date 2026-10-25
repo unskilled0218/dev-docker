@@ -19,6 +19,7 @@ import time
 from urllib.parse import quote, urlencode, urlsplit
 
 import release_io
+import release_logs
 from release_io import (API_LIMIT, CONFIG_LIMIT, REF_LIMIT, SMALL_LIMIT, CommandFailed,
                         Refusal, canonical, command, decode, document, git, http,
                         locked, read, registry, require, sha, write)
@@ -96,7 +97,7 @@ def settings(root):
   semver(version)
   tag = "v" + version
   normalized_notes(read(regular(root, config["notes"]), SMALL_LIMIT), tag)
-  scripts = ("build-all.sh", "scripts/release_data.py", "scripts/release_io.py")
+  scripts = ("build-all.sh", "scripts/release_data.py", "scripts/release_io.py", "scripts/release_logs.py")
   script_hash = sha(b"".join(name.encode() + b"\x00" + read(regular(root, name)) for name in scripts))
   owner = config["repository"].split("/")[0]
   return config | {"version": version, "tag": tag, "script_hash": script_hash,
@@ -251,6 +252,29 @@ def docker_auth(work):
     config["cliPluginsExtraDirs"] = [str(Path(path).absolute()) for path in extra]
   write(private / "config.json", config)
   (private / "config.json").chmod(0o600)
+
+
+def build_logs(root, work, config):
+  """Prepare known-value filtering without exposing or changing Docker auth."""
+  message = "Invalid or unavailable build log filtering inputs"
+  try:
+    token = read(work / "token", 4096).decode()
+    login = read(work / "login", 256).decode()
+    directory = Path(os.environ.get("DOCKER_CONFIG") or str(Path.home() / ".docker"))
+    path = directory / "config.json"
+    docker = document(path, CONFIG_LIMIT) if path.exists() else {}
+    require(isinstance(docker, dict), message)
+    values = [token, base64.b64encode((login + ":" + token).encode()).decode(), str(work),
+              str(work.resolve()), str(directory), str(directory.resolve())]
+    values += release_logs.credential_values(docker)
+    values += release_logs.proxy_values(docker_proxies(docker.get("proxies")))
+    paths = [config["token_file"], *(os.environ.get(name) for name in ("GIT_TOKEN", "FORGEJO_TOKEN_FILE"))]
+    for value in filter(None, paths):
+      path = Path(value).expanduser()
+      values.extend((value, str(path), str((root / path).absolute())))
+  except (OSError, ValueError, Refusal):
+    raise Refusal(message) from None
+  return release_logs.BuildLogs(values)
 
 
 def builder(work, local):
@@ -710,7 +734,7 @@ def snapshot(root, work, config, local):
 def build_args(work, config, name, local):
   state = document(work / "state.json")
   item = next(item for item in config["images"] if item["name"] == name)
-  arguments = ["docker", "buildx", "build", "--platform", "linux/amd64", "--provenance=false", "--sbom=false",
+  arguments = ["docker", "buildx", "build", "--progress=plain", "--platform", "linux/amd64", "--provenance=false", "--sbom=false",
                "--metadata-file", str(work / "build.json"), "--file", str(work / "context" / item["dockerfile"])]
   if local:
     arguments += ["--load", "--pull=false", "--tag", name + ":latest"]
@@ -910,7 +934,10 @@ def dispatch(arguments):
       prewrite(guard, root, work, config)
     arguments = document(work / "arguments.json")
     seconds = 7200 if arguments[1:3] == ["buildx", "build"] else 60
-    command(arguments, REF_LIMIT, seconds)
+    if arguments[:3] == ["docker", "buildx", "build"]:
+      command(arguments, REF_LIMIT, seconds, observer=build_logs(root, work, config))
+    else:
+      command(arguments, REF_LIMIT, seconds)
   elif action == "login":
     command(["docker", "login", urlsplit(config["gitea"]).netloc, "--username", read(work / "login", 256).decode(),
              "--password-stdin"], CONFIG_LIMIT, input_data=read(work / "token", 4096))

@@ -18,6 +18,8 @@ First publication creates missing packages after verifying authenticated owner i
 
 Builds require both `git.lanCA.crt` and `ntfy.lanCA.crt`. See [certificate inputs and trust](docs/image-releases.md#credentials-and-trust) for default paths and overrides.
 
+Both build modes show filtered Docker build logs and phase progress on stderr. See [build logs](docs/image-releases.md#build-logs) for privacy and output limits.
+
 ## Notes
 
 ### Android

@@ -132,9 +132,15 @@ elif tool == "docker":
     effect("login", "git.lan")
   elif args[:2] == ["buildx", "build"]:
     verify_proxy_config()
+    assert "--progress=plain" in args
     name = option("--tag")
     short = name.split("/")[-1].split(":")[0]
+    print("#1 building " + short, flush=True)
+    print("#2 running setup for " + short, file=sys.stderr, flush=True)
+    for marker in state.get("build_log_markers", []):
+      print("#3 diagnostic " + marker + " end", file=sys.stderr, flush=True)
     if state.get("fail") in ("build", "build:" + short):
+      print("ERROR: synthetic setup instruction failed", file=sys.stderr, flush=True)
       die()
     if state.get("pause_build"):
       save()
@@ -185,6 +191,7 @@ elif tool == "docker":
   elif args[:2] == ["image", "inspect"]:
     print(json.dumps([state["local_images"][args[-1]]]))
   elif args[:3] == ["buildx", "imagetools", "create"]:
+    assert "--progress=plain" not in args
     target = option("--tag")
     image, alias = target.rsplit(":", 1)
     manifest = state["manifests"][args[-1].replace("@", "/")]
