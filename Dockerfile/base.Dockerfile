@@ -23,9 +23,9 @@ USER ${USER_NAME}
 
 RUN mkdir -p /home/${USER_NAME}/workdir &&\
   curl -fsSL https://git.lan/dev/agents/raw/branch/main/scripts/setup.sh | bash &&\
-  opencode serve --hostname 0.0.0.0 --port 4096
-
-RUN --mount=type=secret,id=token,target=/home/container/.config/git/token,uid=1000,required=true \
+  --mount=type=secret,id=token,target=/home/container/.config/git/token,uid=1000,required=true \
   mkdir -p /home/${USER_NAME}/.config/git
 
 WORKDIR /home/${USER_NAME}/workdir/project
+
+CMD ["/home/${USER_NAME}/.opencode/bin/opencode", "serve", "--hostname", "0.0.0.0", "--port", "4096"]
