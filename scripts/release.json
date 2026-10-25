@@ -5,7 +5,8 @@
   "username": "dev",
   "token_file": "~/.config/git/token",
   "certificate_file": "/usr/local/share/ca-certificates/git.lanCA.crt",
-  "notes": "docs/releases/0.1.4.md",
+  "ntfy_certificate_file": "/usr/local/share/ca-certificates/ntfy.lanCA.crt",
+  "notes": "docs/releases/0.1.5.md",
   "platforms": ["linux/amd64"],
   "images": [
     {"name": "base", "dockerfile": "Dockerfile/base.Dockerfile", "parent": null},

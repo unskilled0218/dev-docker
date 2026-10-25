@@ -2,6 +2,7 @@
 FROM ubuntu:24.04
 
 COPY git.lanCA.crt /usr/local/share/ca-certificates/git.lanCA.crt
+COPY ntfy.lanCA.crt /usr/local/share/ca-certificates/ntfy.lanCA.crt
 
 ENV DEBIAN_FRONTEND=noninteractive
 

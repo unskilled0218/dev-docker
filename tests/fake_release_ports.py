@@ -144,7 +144,8 @@ elif tool == "docker":
               for index, value in enumerate(args) if value == "--label"}
     context = Path(args[-1])
     assert (context / "git.lanCA.crt").read_text() == "test-certificate\n"
-    assert sorted(item.name for item in context.iterdir()) == ["Dockerfile", "git.lanCA.crt"]
+    assert (context / "ntfy.lanCA.crt").read_text() == "test-ntfy-certificate\n"
+    assert sorted(item.name for item in context.iterdir()) == ["Dockerfile", "git.lanCA.crt", "ntfy.lanCA.crt"]
     assert "test-secret" not in " ".join(args)
     assert not (context / "token").exists()
     if short == "base":

@@ -28,6 +28,10 @@ MARKER = b"dev-docker-release/1\n"
 GRAPH = [
   ("base", "base", None), ("npm", "npm", "base"),
 ]
+CERTIFICATES = (
+  ("git.lanCA.crt", "certificate_file", "BUILD_CERT_FILE"),
+  ("ntfy.lanCA.crt", "ntfy_certificate_file", "BUILD_NTFY_CERT_FILE"),
+)
 # Exact upstream contracts; newer/forked versions need characterization before use.
 PACKAGE_API_VERSIONS = {"1.24.7", "28.2.0"}
 
@@ -68,7 +72,8 @@ def normalized_notes(value, tag):
 
 def settings(root):
   config = document(regular(root, "scripts/release.json"), SMALL_LIMIT)
-  fields = {"schema", "gitea", "repository", "username", "token_file", "certificate_file", "notes", "platforms", "images"}
+  fields = {"schema", "gitea", "repository", "username", "token_file", "certificate_file",
+            "ntfy_certificate_file", "notes", "platforms", "images"}
   require(isinstance(config, dict) and set(config) == fields and type(config["schema"]) is int and
           config["schema"] == 1, "Invalid release configuration fields")
   require(all(text(config[key]) for key in fields - {"schema", "platforms", "images"}), "Invalid setting string")
@@ -148,14 +153,30 @@ def blob(root, commit, name, limit=API_LIMIT):
   return git(root, "cat-file", "blob", oid, limit=limit)
 
 
+def certificates(config):
+  values = {}
+  for name, setting, override in CERTIFICATES:
+    try:
+      path = Path(os.environ.get(override) or config[setting]).expanduser()
+      require(path.is_file(), "Certificate file required")
+      value = read(path, CONFIG_LIMIT)
+      require(value, "Certificate is empty")
+    except (OSError, Refusal):
+      raise Refusal(name + " is missing, unreadable, empty, or exceeds byte limit; set " + override) from None
+    values[name] = value
+  return values
+
+
+def certificate_fingerprint(values):
+  return sha(canonical({name: sha(value) for name, value in values.items()}))
+
+
 def init(root, work, mode):
   config = settings(root)
-  cert = Path(os.environ.get("BUILD_CERT_FILE") or config["certificate_file"]).expanduser()
-  require(cert.is_file(), "Existing build certificate required; set BUILD_CERT_FILE")
-  value = read(cert, CONFIG_LIMIT)
-  require(value, "Build certificate is empty")
-  (work / "certificate").write_bytes(value)
-  config["certificate_hash"] = sha(value)
+  values = certificates(config)
+  for name, value in values.items():
+    (work / name).write_bytes(value)
+  config["certificate_hash"] = certificate_fingerprint(values)
   if mode == "publish":
     config["commit"] = source(root, config)
     config["body"] = normalized_notes(blob(root, config["commit"], config["notes"], SMALL_LIMIT), config["tag"])
@@ -621,8 +642,7 @@ def unchanged(root, work, config):
   current = settings(root)
   require(all(config[key] == value for key, value in current.items()), "Captured settings/scripts changed")
   source(root, config, config["commit"])
-  cert = Path(os.environ.get("BUILD_CERT_FILE") or config["certificate_file"]).expanduser()
-  require(sha(read(cert, CONFIG_LIMIT)) == config["certificate_hash"], "Build certificate changed")
+  require(certificate_fingerprint(certificates(config)) == config["certificate_hash"], "Build certificate changed")
 
 
 def startup(root, work, config):
@@ -683,7 +703,8 @@ def snapshot(root, work, config, local):
     name = "Dockerfile/" + file + ".Dockerfile"
     value = read(regular(root, name)) if local else blob(root, config["commit"], name)
     (context / name).write_bytes(value)
-  shutil.copyfile(work / "certificate", context / "git.lanCA.crt")
+  for name, _, _ in CERTIFICATES:
+    shutil.copyfile(work / name, context / name)
 
 
 def build_args(work, config, name, local):

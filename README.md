@@ -16,6 +16,8 @@ Builds only the AMD64 `base` and `npm` development images. `bash build-all.sh` p
 
 First publication creates missing packages after verifying authenticated owner inventory; no prior local build or manual package creation is needed.
 
+Builds require both `git.lanCA.crt` and `ntfy.lanCA.crt`. See [certificate inputs and trust](docs/image-releases.md#credentials-and-trust) for default paths and overrides.
+
 ## Notes
 
 ### Android
