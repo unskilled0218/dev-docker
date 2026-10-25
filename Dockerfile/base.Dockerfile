@@ -22,10 +22,9 @@ RUN usermod -l ${USER_NAME} "$(getent passwd 1000 | cut -d: -f1)" &&\
 USER ${USER_NAME}
 
 RUN mkdir -p /home/${USER_NAME}/workdir &&\
-  curl -fsSL https://git.lan/dev/agents/raw/branch/main/scripts/setup.sh | bash &&\
-  --mount=type=secret,id=token,target=/home/container/.config/git/token,uid=1000,required=true \
-  mkdir -p /home/${USER_NAME}/.config/git
+  curl -fsSL https://git.lan/dev/agents/raw/branch/main/scripts/setup.sh | bash
 
-WORKDIR /home/${USER_NAME}/workdir/project
+RUN --mount=type=secret,id=token,target=/home/container/.config/git/token,uid=1000,required=true \
+  mkdir -p /home/${USER_NAME}/.config/git
 
 CMD ["/home/${USER_NAME}/.opencode/bin/opencode", "serve", "--hostname", "0.0.0.0", "--port", "4096"]
