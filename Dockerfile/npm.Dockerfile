@@ -20,5 +20,4 @@ RUN apt update &&\
 
 USER ${USER_NAME}
 
-RUN printf 'export PATH=/home/%s/.npm-global/bin:$PATH\n' "$USER_NAME" >> "/home/$USER_NAME/.bashrc" &&\
-  npx playwright install chromium firefox
+RUN printf 'export PATH=/home/%s/.npm-global/bin:$PATH\n' "$USER_NAME" >> "/home/$USER_NAME/.bashrc"

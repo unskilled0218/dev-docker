@@ -29,6 +29,4 @@ RUN --mount=type=secret,id=token,target=/home/container/.config/git/token,uid=10
 
 WORKDIR /home/${USER_NAME}/workdir/project
 
-USER ${USER_NAME}
-
-CMD ["opencode", "serve", "--hostname", "0.0.0.0", "--port", "4096"]
+ENTRYPOINT ["opencode", "serve", "--hostname", "0.0.0.0", "--port", "4096"]
