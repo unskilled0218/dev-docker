@@ -4,6 +4,8 @@ services:
     container_name: project
     stdin_open: true
     tty: true
+    ports:
+      - 4096:4096 # opencode web
     working_dir: /home/container/workdir/project
     volumes:
       - ./:/home/container/workdir
