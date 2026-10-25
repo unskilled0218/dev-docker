@@ -9,6 +9,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV USER_NAME="container"
 ENV GROUP_NAME="container"
 
+ENV OPENCODE_SERVER_PASSWORD="container"
+
 RUN usermod -l ${USER_NAME} "$(getent passwd 1000 | cut -d: -f1)" &&\
   groupmod -n ${GROUP_NAME} "$(getent group 1000 | cut -d: -f1)" &&\
   usermod -d /home/${USER_NAME} -m ${USER_NAME} &&\
@@ -27,4 +29,4 @@ RUN mkdir -p /home/${USER_NAME}/workdir &&\
 RUN --mount=type=secret,id=token,target=/home/container/.config/git/token,uid=1000,required=true \
   mkdir -p /home/${USER_NAME}/.config/git
 
-CMD ["/home/${USER_NAME}/.opencode/bin/opencode", "serve", "--hostname", "0.0.0.0", "--port", "4096"]
+CMD /home/${USER_NAME}/.opencode/bin/opencode serve --hostname 0.0.0.0 --port 4096
