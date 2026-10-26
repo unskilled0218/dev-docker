@@ -19,5 +19,7 @@ RUN apt update &&\
 
 USER ${USER_NAME}
 
+WORKDIR /home/${USER_NAME}
+
 RUN printf 'export PATH=/home/%s/.npm-global/bin:$PATH\n' "$USER_NAME" >> "/home/$USER_NAME/.bashrc" &&\
   yes | npm install @playwright/test && yes | npx playwright install
