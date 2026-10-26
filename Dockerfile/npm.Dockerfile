@@ -15,7 +15,7 @@ RUN apt update &&\
   chown -R ${USER_NAME}:${GROUP_NAME} /home/${USER_NAME} &&\
   npm --version &&\
   node --version &&\
-  yes | npx playwright install-deps chromium firefox
+  yes | npx playwright install-deps
 
 USER ${USER_NAME}
 
