@@ -4,8 +4,7 @@ FROM ${BASE_IMAGE}
 USER root
 
 RUN apt update &&\
-  apt install -y \
-  git wget vim unzip curl build-essential python3-full &&\
+  apt install -y python3-full &&\
   curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - &&\
   apt install -y nodejs &&\
   apt clean &&\
@@ -20,4 +19,5 @@ RUN apt update &&\
 
 USER ${USER_NAME}
 
-RUN printf 'export PATH=/home/%s/.npm-global/bin:$PATH\n' "$USER_NAME" >> "/home/$USER_NAME/.bashrc"
+RUN printf 'export PATH=/home/%s/.npm-global/bin:$PATH\n' "$USER_NAME" >> "/home/$USER_NAME/.bashrc" &&\
+  yes | npm install @playwright/test && yes | npx playwright install
