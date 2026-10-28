@@ -6,8 +6,8 @@
 
 ## command
 
-Use official playwright and opencode image instead install it from Dockerfile/base.Dockerfile
+Use official Playwright and OpenCode images instead of installing them from `Dockerfile/base.Dockerfile`. Update `compose/docker-compose.yml` too.
 
 ## goal
 
-Update `Dockerfile/base.Dockerfile` to use the official Playwright and OpenCode images instead of installing those tools during the build, while preserving the existing development environment.
+Use the official Playwright and OpenCode images instead of installing those tools in `Dockerfile/base.Dockerfile`, and update `compose/docker-compose.yml` to run the resulting setup while preserving the existing development environment.
