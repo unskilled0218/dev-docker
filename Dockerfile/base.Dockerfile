@@ -3,7 +3,6 @@ FROM ubuntu:24.04
 
 COPY git.lanCA.crt /usr/local/share/ca-certificates/git.lanCA.crt
 COPY ntfy.lanCA.crt /usr/local/share/ca-certificates/ntfy.lanCA.crt
-COPY opencode.lanCA.crt /usr/local/share/ca-certificates/opencode.lanCA.crt
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -23,7 +22,7 @@ RUN usermod -l ${USER_NAME} "$(getent passwd 1000 | cut -d: -f1)" &&\
 USER ${USER_NAME}
 
 RUN mkdir -p /home/${USER_NAME}/.local/bin &&\
-  printf 'opencode --yolo --server https://opencode.lan' >> "/home/$USER_NAME/.local/bin/oc" &&\
+  printf 'opencode --yolo' >> "/home/$USER_NAME/.local/bin/oc" &&\
   chmod +x /home/$USER_NAME/.local/bin/oc &&\
   mkdir -p /home/${USER_NAME}/workdir &&\
   curl -fsSL https://git.lan/dev/agents/raw/branch/main/scripts/setup.sh | bash
