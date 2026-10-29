@@ -10,10 +10,10 @@
 
 **Mode:** Health Dashboard
 **Scope:** Branch `8-use-official-images` at `169aa6b` against `main` at `5f291d1`; 16 changed files.
-**Composite Score:** 89/100
-**Scores:** Code Quality 70/100; Architecture 100/100; Tech Debt 100/100; Test Quality 95/100. Balanced deductions and weights 25%, 30%, 25%, and 20%, respectively. Scores describe only the reviewed branch changes, not the whole project.
+**Composite Score:** 96/100
+**Scores:** Code Quality 85/100; Architecture 100/100; Tech Debt 100/100; Test Quality 95/100. Balanced deductions and weights 25%, 30%, 25%, and 20%, respectively. Scores describe only the reviewed branch changes, not the whole project.
 
-The branch is not ready to merge: existing OpenCode startup and host access are broken, and the focused regression suite fails.
+The branch is not ready to merge: the existing OpenCode startup contract changed, and the focused regression suite fails on an intentionally removed port.
 
 ## Module Dependency Graph
 
@@ -42,27 +42,17 @@ Consequence: Newly built images no longer provide the previously automatic OpenC
 
 Remedy: Restore the original server command and authentication contract, and verify both freshly built images start the authenticated server.
 
-**Change Propagation (R2) — Compose removes OpenCode host access**
-
-Symptom: `compose/docker-compose.yml:3-10` removes the former `4096:4096` mapping, contrary to `tasks/8-use-official-images/2-plan.md:49`.
-
-Source: *Software Engineering at Google* — Backward compatibility.
-
-Consequence: Even with the server command restored, existing host clients cannot reach OpenCode through the documented Compose deployment.
-
-Remedy: Restore the port mapping and validate host access against a freshly built image.
-
 ### Warning
 
 **Coverage Illusion (T5) — Verification record predates the final base and port changes**
 
-Symptom: `tests/test_playwright.py:54` still requires port 4096 and currently fails. Its base-image checks at lines 27-30 do not verify the original command or password. `tasks/8-use-official-images/4-implemented.md:25-31` reports passing checks and unchanged base behavior, but subsequent branch commits changed both files; its runtime check used an existing base image.
+Symptom: `tests/test_playwright.py:54` still requires port 4096 and currently fails, although its removal is intentional. Its base-image checks at lines 27-30 do not verify the original command or password. `tasks/8-use-official-images/4-implemented.md:25-31` reports passing checks and unchanged base behavior, but subsequent branch commits changed both files; its runtime check used an existing base image.
 
 Source: *How Google Tests Software* — Change coverage; *Working Effectively with Legacy Code* — Characterization Tests.
 
-Consequence: The recorded successful runs do not establish that the final branch preserves startup, authentication, or host access, and the current offline suite is red.
+Consequence: The recorded successful runs do not establish that the final branch preserves startup or authentication, and the current offline suite is red.
 
-Remedy: Add explicit regression coverage for the base command and authentication, retain the port assertion, rerun verification after the final changes, and update the implementation record with actual results and remaining build limitations.
+Remedy: Add explicit regression coverage for the base command and authentication, update the obsolete port assertion, rerun verification after the final changes, and update the implementation record with actual results and remaining build limitations.
 
 ## Test Suite Map and Verification
 
@@ -76,4 +66,4 @@ Changed tests comprise five Python offline configuration tests, ten Node behavio
 
 ## Recommendation
 
-Restore the base image's authenticated server and Compose host port first. Then add startup contract coverage and rerun the focused and full suites against the final branch, followed by fresh-image runtime verification when build prerequisites are available. Test Quality needs the most follow-up; a focused test review may help assess the remaining coverage.
+Resolve the unintended base image startup and authentication changes first; keep port 4096 removed as requested. Then add startup contract coverage and rerun the focused and full suites against the final branch, followed by fresh-image runtime verification when build prerequisites are available. Test Quality needs the most follow-up; a focused test review may help assess the remaining coverage.
