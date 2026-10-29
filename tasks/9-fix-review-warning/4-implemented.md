@@ -14,7 +14,7 @@
 ## Verification
 
 - Focused Python configuration suite: six tests passed, including both alternative port fixtures.
-- Full Python discovery was started in the background; its result was not available when this record was written. Output is in `/tmp/opencode/task9-tests.log`.
+- Full Python discovery passed all 126 tests in 543.194 seconds. Output is in `/tmp/opencode/task9-tests.log`.
 - Both Compose configurations validated. Normalized application configuration contained no published target 4096; a disposable alternative `8080:4096` fixture was rejected. No containers were started for this check.
 - `bash -n build-all.sh`, `bash build-all.sh --validate`, and `git diff --check` passed.
 - Node behavioral tests were not run: `node` is not installed in this environment.
