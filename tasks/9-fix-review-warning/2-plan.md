@@ -22,7 +22,8 @@ Update the stale regression assertion and current documentation, clarify which e
 
 ### 1. Correct the regression test
 
-- Update `tests/test_playwright.py` to remove the requirement for `4096:4096` and assert that the intentionally removed mapping is absent. Preserve the existing network, image, and protected-mount assertions.
+- Update `tests/test_playwright.py` to remove the requirement for `4096:4096`. The intended contract is that the app does not publish container port 4096, regardless of host port or Compose syntax; other ports are not prohibited by this task. Keep an offline, dependency-free check for the current Compose source and preserve the network, image, and protected-mount assertions. Add negative fixture cases for an alternative host port and long syntax so the offline check rejects both without changing the real Compose file.
+- When Docker Compose is available, inspect `docker compose -f compose/docker-compose.yml config --format json` and assert that the normalized `app` service has no published port targeting 4096. Exercise the same validation against a disposable test configuration containing an alternative mapping to target 4096, and require it to fail. Never start that configuration. Report this normalized check as skipped if Compose is unavailable; the offline source check is not a complete YAML parser.
 - Keep the current Dockerfile and Compose runtime behavior unchanged; do not restore the OpenCode server or port to satisfy the test.
 
 ### 2. Correct documentation and the verification record
@@ -40,7 +41,7 @@ Update the stale regression assertion and current documentation, clarify which e
 
 ## Acceptance Criteria
 
-- The focused test passes without requiring port 4096 and still checks the shared network and protected mounts.
+- The focused test passes without requiring port 4096, rejects representative alternate mappings to that target, and still checks the shared network and protected mounts. When Compose is available, normalized configuration validation confirms app container port 4096 is not published and rejects the negative fixture.
 - Current documentation accurately describes the intentional OpenCode server and port removal; prior verification is clearly scoped to the images and revision actually tested.
 - The final branch's available checks are recorded honestly, with blocked or skipped verification identified explicitly.
 - No OpenCode server command, password, or host port is restored, and Playwright behavior is unchanged.
