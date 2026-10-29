@@ -14,12 +14,11 @@ RUN apt update &&\
   /bin/bash -c 'source /home/${USER_NAME}/.bashrc' &&\
   chown -R ${USER_NAME}:${GROUP_NAME} /home/${USER_NAME} &&\
   npm --version &&\
-  node --version &&\
-  yes | npx playwright install-deps
+  node --version
 
 USER ${USER_NAME}
 
 WORKDIR /home/${USER_NAME}
 
 RUN printf 'export PATH=/home/%s/.npm-global/bin:$PATH\n' "$USER_NAME" >> "/home/$USER_NAME/.bashrc" &&\
-  yes | npm install @playwright/test && yes | npx playwright install
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install --save-exact @playwright/test@1.64.1

@@ -124,6 +124,8 @@ These protections are not universal secret detection. Downloaded setup scripts, 
 
 ## Offline verification
 
+The npm image now contains a Playwright 1.64.1 client without local browsers or browser-specific system libraries. Start the separate official browser service before attached application/client projects; see [remote Playwright setup](playwright.md). The release graph still publishes only base and npm, not the upstream browser image. Base installation and certificate/secret contracts are unchanged.
+
 ```bash
 python3 -B -m unittest discover -s tests -v
 bash -n build-all.sh
