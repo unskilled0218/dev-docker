@@ -9,6 +9,8 @@
 
 ## Changes
 
+Correction (2026-10-29): The results below were recorded before later commits `1950cef`, `25cec1a`, and `169aa6b` removed the Compose port mapping and changed the base Dockerfile. The final branch no longer sets the OpenCode server password or starts that server automatically. Claims below about unchanged base or port behavior describe the earlier state, not the final branch. Runtime checks used an existing base image and do not verify a fresh final base image. See task 9 for current verification.
+
 - Added `compose/playwright-compose.yml` with a distinct server project, official Playwright `1.64.1` Noble image pinned to registry digest `sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea`, non-root `pwuser`, init, 1 GiB shared memory, and no host-published browser port or credential/workspace mounts.
 - The browser project owns the explicitly named `development` bridge network. The existing application Compose project joins it as an external network and exposes `PW_TEST_CONNECT_WS_ENDPOINT=ws://playwright:3000/` to clients, preserving existing mounts and port 4096.
 - Added a read-only, fail-fast bind of `scripts/playwright-healthcheck.cjs`. The healthcheck verifies the WebSocket upgrade and accept key within two seconds, disconnects without initializing a browser, and uses the plan's bounded Compose timing.

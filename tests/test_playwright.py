@@ -7,6 +7,17 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def app_source_has_4096_port(content):
+  """Conservatively detect port 4096 in the app's block-style ports section."""
+  app = re.search(r"(?ms)^  app:\s*\n(.*?)(?=^  [\w.-]+:\s*(?:#.*)?$|^\S|\Z)", content)
+  if not app:
+    raise ValueError("app service not found")
+  ports = re.search(r"(?ms)^    ports:\s*[^\n]*\n?(.*?)(?=^    [\w.-]+:|\Z)", app.group(1))
+  if not ports:
+    return bool(re.search(r"(?m)^    ports:.*\b4096\b", app.group(1)))
+  return bool(re.search(r"\b4096\b", ports.group(0)))
+
+
 class PlaywrightConfigurationTests(unittest.TestCase):
   def test_image_server_and_client_versions_match(self):
     server = (ROOT / "compose/playwright-compose.yml").read_text()
@@ -51,9 +62,14 @@ class PlaywrightConfigurationTests(unittest.TestCase):
     self.assertIn("name: development\n", client)
     self.assertIn("PW_TEST_CONNECT_WS_ENDPOINT: ws://playwright:3000/", client)
     self.assertIn("image: git.lan/dev/base:latest", client)
-    self.assertIn("4096:4096", client)
+    self.assertFalse(app_source_has_4096_port(client))
     self.assertEqual(client.count("create_host_path: false"), 3)
     self.assertEqual(client.count("read_only: true"), 3)
+
+  def test_port_check_rejects_alternative_mappings(self):
+    for ports in ('      - "8080:4096"\n', '      - target: 4096\n        published: "8080"\n'):
+      with self.subTest(ports=ports):
+        self.assertTrue(app_source_has_4096_port("services:\n  app:\n    ports:\n" + ports))
 
   def test_healthcheck_has_bounded_timing_and_no_package_download(self):
     server = (ROOT / "compose/playwright-compose.yml").read_text()
