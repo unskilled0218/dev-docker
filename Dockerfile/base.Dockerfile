@@ -3,13 +3,12 @@ FROM ubuntu:24.04
 
 COPY git.lanCA.crt /usr/local/share/ca-certificates/git.lanCA.crt
 COPY ntfy.lanCA.crt /usr/local/share/ca-certificates/ntfy.lanCA.crt
+COPY opencode.lanCA.crt /usr/local/share/ca-certificates/opencode.lanCA.crt
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 ENV USER_NAME="container"
 ENV GROUP_NAME="container"
-
-ENV OPENCODE_SERVER_PASSWORD="container"
 
 RUN usermod -l ${USER_NAME} "$(getent passwd 1000 | cut -d: -f1)" &&\
   groupmod -n ${GROUP_NAME} "$(getent group 1000 | cut -d: -f1)" &&\
@@ -23,10 +22,11 @@ RUN usermod -l ${USER_NAME} "$(getent passwd 1000 | cut -d: -f1)" &&\
 
 USER ${USER_NAME}
 
-RUN mkdir -p /home/${USER_NAME}/workdir &&\
+RUN mkdir -p /home/${USER_NAME}/.local/bin &&\
+  printf 'opencode --yolo --server https://opencode.lan' >> "/home/$USER_NAME/.local/bin/oc" &&\
+  chmod +x /home/$USER_NAME/.local/bin/oc &&\
+  mkdir -p /home/${USER_NAME}/workdir &&\
   curl -fsSL https://git.lan/dev/agents/raw/branch/main/scripts/setup.sh | bash
 
 RUN --mount=type=secret,id=token,target=/home/container/.config/git/token,uid=1000,required=true \
   mkdir -p /home/${USER_NAME}/.config/git
-
-CMD /home/${USER_NAME}/.opencode/bin/opencode serve --hostname 0.0.0.0 --port 4096
