@@ -22,7 +22,7 @@ Updated `VERSION` from `0.1.12` to `0.1.13`, added `docs/releases/0.1.13.md`, an
 
 ## Verification
 
-- Full Python offline suite: all 125 tests passed across the interrupted clean run and its continuation. Preserved 54 completed passes from before the harness/server restart, then ran only the remaining 71 tests; all passed in 325.132 seconds. No completed tests were repeated to recover from the restart.
+- Full Python offline suite: the final uninterrupted rerun passed all 125 tests in 574.180 seconds. Earlier verification also passed across an interrupted run and its continuation, preserving 54 completed passes and running the remaining 71 tests in 325.132 seconds.
 - Focused final Python configuration suite: all five tests passed. The initial full run executed 125 tests in 594.741 seconds; its only failure was an assertion loaded before the healthcheck bind changed from short syntax to fail-fast long syntax. The updated assertions pass; the clean rerun avoids relying on that mixed-source run.
 - Final Node behavioral suite: all ten tests passed using Node from a disposable existing npm-image container with networking disabled. Coverage includes valid/invalid/stalled/refused WebSocket handshakes, connection closure, delayed connection recovery, bounded deadlines, version rejection, exhausted-deadline behavior, and credential redaction. No Playwright package downloads are required by these unit tests.
 - `bash -n build-all.sh`, `bash build-all.sh --validate`, both Compose configuration validations, and `git diff --check` passed. `git diff --exit-code -- Dockerfile/base.Dockerfile` confirms base is unchanged.
