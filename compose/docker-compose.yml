@@ -8,8 +8,6 @@ services:
       PW_TEST_CONNECT_WS_ENDPOINT: ws://playwright:3000/
     networks:
       - development
-    ports:
-      - 4096:4096 # opencode web
     working_dir: /home/container/workdir/project
     volumes:
       - ./:/home/container/workdir
