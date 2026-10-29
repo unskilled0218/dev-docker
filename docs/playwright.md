@@ -14,7 +14,7 @@ Tests and application tools run in client containers; Chromium, Firefox, and Web
 
 The Compose image is pinned to the verified registry digest `sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea`. Update this digest together with the tag and matching package versions when upgrading.
 
-The base remains Ubuntu and retains the external setup script. It no longer starts an OpenCode server automatically or sets a default server password; application Compose no longer publishes its host port. The npm development image now provides only `@playwright/test@1.64.1` and its client dependencies, without local browsers or browser-specific libraries. Base does not contain Node or the Playwright client: choose the npm image or install the matching package in your own project container. Existing `.launch()` workflows must migrate explicitly; the endpoint variable does not redirect arbitrary library calls or configure every MCP/tool integration.
+The base remains Ubuntu and retains the external setup script. It no longer starts an OpenCode server automatically or sets a default server password. The npm development image now provides only `@playwright/test@1.64.1` and its client dependencies, without local browsers or browser-specific libraries. Base does not contain Node or the Playwright client: choose the npm image or install the matching package in your own project container. Existing `.launch()` workflows must migrate explicitly; the endpoint variable does not redirect arbitrary library calls or configure every MCP/tool integration.
 
 ## Start and stop
 

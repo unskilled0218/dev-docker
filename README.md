@@ -20,7 +20,7 @@ Builds require both `git.lanCA.crt` and `ntfy.lanCA.crt`. See [certificate input
 
 Both build modes show filtered Docker build logs and phase progress on stderr. See [build logs](docs/image-releases.md#build-logs) for privacy and output limits.
 
-Run browsers in the separate official Playwright service and connect client containers over the shared `development` network. See [remote Playwright setup](docs/playwright.md) for startup order, client versions, and independent clients. The npm image no longer installs local browsers. The base image no longer starts an OpenCode server or sets its default server password, and Compose no longer publishes its host port.
+Run browsers in the separate official Playwright service and connect client containers over the shared `development` network. See [remote Playwright setup](docs/playwright.md) for startup order, client versions, and independent clients. The npm image no longer installs local browsers. The base image no longer starts an OpenCode server or sets its default server password.
 
 ## Notes
 

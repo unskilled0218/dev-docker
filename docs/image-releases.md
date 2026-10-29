@@ -124,7 +124,7 @@ These protections are not universal secret detection. Downloaded setup scripts, 
 
 ## Offline verification
 
-The npm image now contains a Playwright 1.64.1 client without local browsers or browser-specific system libraries. Start the separate official browser service before attached application/client projects; see [remote Playwright setup](playwright.md). The release graph still publishes only base and npm, not the upstream browser image. The base setup script and certificate/secret contracts remain in place, but the automatic OpenCode server command and default server password were removed, as was its Compose host port mapping.
+The npm image now contains a Playwright 1.64.1 client without local browsers or browser-specific system libraries. Start the separate official browser service before attached application/client projects; see [remote Playwright setup](playwright.md). The release graph still publishes only base and npm, not the upstream browser image. The base setup script and certificate/secret contracts remain in place, but the automatic OpenCode server command and default server password were removed.
 
 ```bash
 python3 -B -m unittest discover -s tests -v
