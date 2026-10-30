@@ -6,6 +6,8 @@ services:
     tty: true
     environment:
       PW_TEST_CONNECT_WS_ENDPOINT: ws://playwright:3000/
+    group_add:
+      - 983
     networks:
       - development
     working_dir: /home/container/workdir/project
