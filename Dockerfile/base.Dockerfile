@@ -12,7 +12,7 @@ ENV GROUP_NAME="container"
 RUN usermod -l ${USER_NAME} "$(getent passwd 1000 | cut -d: -f1)" &&\
   groupmod -n ${GROUP_NAME} "$(getent group 1000 | cut -d: -f1)" &&\
   usermod -d /home/${USER_NAME} -m ${USER_NAME} &&\
-  groupadd -g 988 docker &&\
+  groupadd -g 983 docker &&\
   apt update &&\
   apt install -y \
   git wget vim unzip curl build-essential jq &&\
