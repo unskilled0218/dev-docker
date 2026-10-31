@@ -15,16 +15,13 @@ RUN usermod -l ${USER_NAME} "$(getent passwd 1000 | cut -d: -f1)" &&\
   groupadd -g 988 docker &&\
   apt update &&\
   apt install -y \
-  git wget vim unzip curl build-essential &&\
+  git wget vim unzip curl build-essential jq &&\
   update-ca-certificates &&\
   curl -fsSL https://git.lan/dev/scripts/raw/branch/main/install-docker.sh | bash
 
 USER ${USER_NAME}
 
-RUN mkdir -p /home/${USER_NAME}/.local/bin &&\
-  printf 'opencode --yolo' >> "/home/$USER_NAME/.local/bin/oc" &&\
-  chmod +x /home/$USER_NAME/.local/bin/oc &&\
-  mkdir -p /home/${USER_NAME}/workdir &&\
+RUN mkdir -p /home/${USER_NAME}/workdir &&\
   curl -fsSL https://git.lan/dev/agents/raw/branch/main/scripts/setup.sh | bash
 
 RUN --mount=type=secret,id=token,target=/home/container/.config/git/token,uid=1000,required=true \
