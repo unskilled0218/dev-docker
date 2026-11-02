@@ -533,11 +533,28 @@ class DataBoundaryTests(ReleaseFixture):
         self.ntfy_cert.write_bytes(b"changed-ntfy")
         data.snapshot(self.project, work, config, local)
         context = work / "context"
-        self.assertEqual(sorted(path.name for path in context.iterdir()), ["Dockerfile", *sorted(originals)])
+        self.assertEqual(sorted(path.name for path in context.iterdir()), ["Dockerfile", *sorted(originals), "scripts"])
+        self.assertEqual([path.name for path in (context / "scripts").iterdir()], ["install-docker.sh"])
         for name, value in originals.items():
           self.assertEqual((context / name).read_bytes(), value)
         self.assertEqual(config["certificate_hash"], data.certificate_fingerprint(originals))
         self.assertEqual(data.labels_for(config)["dev.docker.release.certificate"], config["certificate_hash"])
+
+  def test_installer_snapshot_uses_worktree_locally_and_selected_commit_for_publication(self):
+    installer = self.project / "scripts/install-docker.sh"
+    committed = installer.read_bytes()
+    installer.write_bytes(committed + b"\n# Working-tree change\n")
+    for local in (True, False):
+      with self.subTest(local=local):
+        work = self.root / ("local-installer" if local else "published-installer")
+        work.mkdir(mode=0o700)
+        with patch.dict(os.environ, self.env, clear=True):
+          data.init(self.project, work, "local")
+        config = ports.document(work / "settings.json") | {"commit": self.state()["commit"]}
+        data.snapshot(self.project, work, config, local)
+        captured = work / "context/scripts/install-docker.sh"
+        self.assertEqual(captured.read_bytes(), installer.read_bytes() if local else committed)
+        self.assertEqual([path.name for path in captured.parent.iterdir()], ["install-docker.sh"])
 
   def test_base_dockerfile_copies_both_certificates_before_trust_update(self):
     content = (self.project / "Dockerfile/base.Dockerfile").read_text()

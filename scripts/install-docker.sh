@@ -1,7 +1,8 @@
 #!/bin/bash
+set -euo pipefail
 
-apt update
-apt install ca-certificates curl -y
+apt-get update
+apt-get install ca-certificates curl -y
 install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
 chmod a+r /etc/apt/keyrings/docker.asc
@@ -16,6 +17,6 @@ Architectures: $(dpkg --print-architecture)
 Signed-By: /etc/apt/keyrings/docker.asc
 EOF
 
-apt update
-apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
-usermod -aG docker $(getent passwd 1000 | cut -d: -f1)
+apt-get update
+apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
+usermod -aG docker "$(getent passwd 1000 | cut -d: -f1)"

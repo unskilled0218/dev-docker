@@ -18,6 +18,8 @@ First publication creates missing packages after verifying authenticated owner i
 
 Builds require both `git.lanCA.crt` and `ntfy.lanCA.crt`. See [certificate inputs and trust](docs/image-releases.md#credentials-and-trust) for default paths and overrides.
 
+The base image installs Docker from the repository's `scripts/install-docker.sh` before switching users. See [Docker installation](docs/image-releases.md#docker-installation) for build inputs and cleanup.
+
 Both build modes show filtered Docker build logs and phase progress on stderr. See [build logs](docs/image-releases.md#build-logs) for privacy and output limits.
 
 Run browsers in the separate official Playwright service and connect client containers over the shared `development` network. See [remote Playwright setup](docs/playwright.md) for startup order, client versions, and independent clients. The npm image no longer installs local browsers. The base image no longer starts an OpenCode server or sets its default server password.

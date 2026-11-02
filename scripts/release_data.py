@@ -727,6 +727,10 @@ def snapshot(root, work, config, local):
     name = "Dockerfile/" + file + ".Dockerfile"
     value = read(regular(root, name)) if local else blob(root, config["commit"], name)
     (context / name).write_bytes(value)
+  name = "scripts/install-docker.sh"
+  value = read(regular(root, name)) if local else blob(root, config["commit"], name)
+  (context / "scripts").mkdir()
+  (context / name).write_bytes(value)
   for name, _, _ in CERTIFICATES:
     shutil.copyfile(work / name, context / name)
 

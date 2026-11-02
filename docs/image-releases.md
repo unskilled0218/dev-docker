@@ -2,6 +2,7 @@
 
 - [Commands](#commands)
 - [Settings and prerequisites](#settings-and-prerequisites)
+- [Docker installation](#docker-installation)
 - [Credentials and trust](#credentials-and-trust)
 - [Repository package visibility](#repository-package-visibility)
 - [Build proxies](#build-proxies)
@@ -39,6 +40,12 @@ Publication requires Git, curl, Docker Buildx, a reachable selected builder adve
 Build-only uses current Dockerfiles and needs neither clean `main` nor remote Git checks. It requires the selected Buildx builder to use the `docker` driver and the same Docker endpoint/image store as local image inspection. Select a supported builder explicitly before running. Container-backed, remote, Kubernetes, unknown, or mismatched builders are refused before builds; the command never creates/switches builders or pushes as a fallback. Each parent is loaded and its local ID checked before and after building children with its local tag and `--pull=false`. A local image ID is a config digest, not a registry manifest reference; do not pass it directly as a BuildKit `FROM`. Local `image:latest` names remain available for existing Compose/Dockerfile defaults. Publication does not load local images; run build-only separately if needed. Exclude concurrent local image writers while building.
 
 Only AMD64 is supported by the release contract; this change does not certify other architectures or redesign image toolchains. The command installs no tools, certificates, privileged emulation, or dependencies on the host. Provide missing prerequisites separately; certificate installation happens only inside the built image.
+
+## Docker installation
+
+The base image copies `scripts/install-docker.sh` into `/tmp` and runs it with Bash before `USER ${USER_NAME}`. The installer uses `set -euo pipefail` and apt-get so command failures stop the build. Each package-installing RUN removes `/var/lib/apt/lists/*`; the installer RUN also removes the temporary script. Docker packages still come from Docker's Ubuntu repository, and the existing UID 1000 user joins the docker group.
+
+The isolated context includes only the configured Dockerfiles, both captured certificates, and `scripts/install-docker.sh`. Build-only reads the current working-tree installer; publication reads its selected Git commit blob. Manual base builds must also include `scripts/install-docker.sh` at that relative context path. No other scripts or credentials are copied into the context. The separate user setup download remains unchanged; package downloads still require network access.
 
 ## Credentials and trust
 
