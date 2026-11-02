@@ -129,6 +129,32 @@ class LocalContractTests(ReleaseFixture):
     self.assertEqual(self.state()["calls"], [])
     self.assertEqual(before, sorted(str(path.relative_to(self.project)) for path in self.project.rglob("*")))
 
+  def test_missing_installer_refuses_all_modes_before_external_operations(self):
+    (self.project / "scripts/install-docker.sh").unlink()
+    self.assert_installer_refused_before_external_operations("Required source file is missing")
+
+  def test_symlinked_installer_refuses_all_modes_before_external_operations(self):
+    installer = self.project / "scripts/install-docker.sh"
+    target = installer.with_name("installer-target.sh")
+    installer.rename(target)
+    installer.symlink_to(target.name)
+    self.assert_installer_refused_before_external_operations("Symlink source refused")
+
+  def assert_installer_refused_before_external_operations(self, message):
+    self.token.unlink()
+    self.cert.unlink()
+    self.ntfy_cert.unlink()
+    before = sorted(str(path.relative_to(self.root)) for path in self.root.rglob("*"))
+    for args in (("--validate",), ("--build-only",), ()):
+      with self.subTest(args=args):
+        result = self.run_script(*args)
+        self.assert_refused_without_writes(result)
+        self.assertIn(message, result.stderr)
+        self.assertEqual(self.state()["calls"], [])
+        self.assertFalse(list(self.root.glob("dev-docker-release.*")))
+        self.assertFalse((self.project / ".release-operation.lock").exists())
+        self.assertEqual(before, sorted(str(path.relative_to(self.root)) for path in self.root.rglob("*")))
+
   def test_help_and_rejected_cli_never_call_external_ports(self):
     for args in [("--help",), ("-h",)]:
       self.assert_success(self.run_script(*args))

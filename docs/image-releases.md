@@ -43,6 +43,8 @@ Only AMD64 is supported by the release contract; this change does not certify ot
 
 ## Docker installation
 
+Offline validation requires `scripts/install-docker.sh` to exist as a regular, non-symlinked file inside the project. Missing or symlinked installer paths are refused in all modes before credential or certificate loading, Docker, network operations, locks, or build preparation. No executable permission or installer-content validation is added.
+
 The base image copies `scripts/install-docker.sh` into `/tmp` and runs it with Bash before `USER ${USER_NAME}`. The installer uses `set -euo pipefail` and apt-get so command failures stop the build. Each package-installing RUN removes `/var/lib/apt/lists/*`; the installer RUN also removes the temporary script. Docker packages still come from Docker's Ubuntu repository, and the existing UID 1000 user joins the docker group.
 
 The isolated context includes only the configured Dockerfiles, both captured certificates, and `scripts/install-docker.sh`. Build-only reads the current working-tree installer; publication reads its selected Git commit blob. Manual base builds must also include `scripts/install-docker.sh` at that relative context path. No other scripts or credentials are copied into the context. The separate user setup download remains unchanged; package downloads still require network access.

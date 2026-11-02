@@ -88,6 +88,7 @@ def settings(root):
   expected = [{"name": name, "dockerfile": "Dockerfile/" + file + ".Dockerfile", "parent": parent}
               for name, file, parent in GRAPH]
   require(config["images"] == expected, "Expected the ordered two-image dependency graph")
+  regular(root, "scripts/install-docker.sh")
   for item in expected:
     content = read(regular(root, item["dockerfile"])).decode()
     if item["parent"]:
