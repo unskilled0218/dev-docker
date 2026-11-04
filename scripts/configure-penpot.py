@@ -13,8 +13,26 @@ SERVER = {
   "url": "https://penpot.lan/mcp/stream?userToken={file:/home/container/.config/token/penpot}",
   "oauth": False,
 }
-# Keep strings intact while removing JSONC comments and trailing commas.
-JSONC_TOKEN = re.compile(r'"(?:[^"\\]|\\.)*"|//[^\r\n]*|/\*[\s\S]*?\*/|,\s*(?=[}\]])')
+# Each transformation protects quoted strings and runs only once.
+JSON_STRING = r'"(?:[^"\\]|\\.)*"'
+JSONC_COMMENT = re.compile(JSON_STRING + r'|//[^\r\n]*|/\*[\s\S]*?\*/')
+JSONC_COMMA = re.compile(JSON_STRING + r'|,\s*(?=[}\]])')
+
+
+def jsonc_text(text):
+  text = JSONC_COMMENT.sub(lambda match: match[0] if match[0].startswith('"') else " ", text)
+
+  def trailing_comma(match):
+    if match[0].startswith('"'):
+      return match[0]
+    previous = text[:match.start()].rstrip()
+    # Strings, containers, numbers, true/false, and null can end a value.
+    # Final JSON parsing still validates its complete syntax.
+    if previous and previous[-1] in '"}]0123456789el':
+      return " "
+    return match[0]
+
+  return JSONC_COMMA.sub(trailing_comma, text)
 
 
 def unique(pairs):
@@ -49,9 +67,7 @@ def configure(directory):
   if existing:
     text = path.read_text()
     if path.suffix == ".jsonc":
-      text = JSONC_TOKEN.sub(lambda match: match[0] if match[0].startswith('"') else " ", text)
-      # A comment between a comma and closing bracket becomes whitespace above.
-      text = JSONC_TOKEN.sub(lambda match: match[0] if match[0].startswith('"') else " ", text)
+      text = jsonc_text(text)
     config = json.loads(text, object_pairs_hook=unique)
   if not isinstance(config, dict):
     raise ValueError("Expected configuration object")

@@ -80,6 +80,58 @@ class PenpotConfigTests(unittest.TestCase):
         self.assertEqual(path.read_text(), value)
         self.assertEqual(list(self.directory.iterdir()), [path])
 
+  def test_malformed_jsonc_refuses_without_changing_original_bytes(self):
+    self.directory.mkdir(parents=True)
+    path = self.directory / "opencode.jsonc"
+    cases = (
+      '{"username":"example",,}',
+      '{"instructions":["example",,]}',
+      '{"username":"example", , }',
+      '{"instructions":["example", /* gap */ ,]}',
+      '{"username":"example", // gap\n ,}',
+      '{,}',
+      '{ /* gap */ , }',
+      '{"instructions":[,]}',
+      '{"instructions":[ /* gap */ , ]}',
+      '{"username":,}',
+      '{"username": /* missing value */ ,}',
+      '{"instructions":[,"example"]}',
+      '{"instructions":["example",,"next"]}',
+      '{"username":"first", /* duplicate */ "username":"second",}',
+      '{"username":"unterminated}',
+    )
+    for value in cases:
+      with self.subTest(value=value):
+        original = ("// Existing private config\r\n" + value + "\r\n").encode()
+        path.write_bytes(original)
+        before = sorted(entry.name for entry in self.directory.iterdir())
+        with self.assertRaises(ValueError):
+          configure.configure(self.directory)
+        self.assertEqual(path.read_bytes(), original)
+        self.assertEqual(sorted(entry.name for entry in self.directory.iterdir()), before)
+
+  def test_valid_jsonc_comments_and_trailing_commas_preserve_values(self):
+    self.directory.mkdir(parents=True)
+    path = self.directory / "opencode.jsonc"
+    strings = ['https://example.invalid/a,}', 'quote: " // text', 'slash: \\', '/*literal*/ ,]']
+    cases = (
+      ('{"instructions":[' + ",".join(json.dumps(value) for value in strings) + ', // closing\n],}',
+       {"instructions": strings}),
+      ('{"extra":{"flag":true, /* closing */}, "instructions":["example" /* value */, /* closing */],}',
+       {"extra": {"flag": True}, "instructions": ["example"]}),
+      ('{"extra":[0, -1, 1.5, true, false, null, {}, [],], // closing\n}',
+       {"extra": [0, -1, 1.5, True, False, None, {}, []]}),
+    )
+    for value, expected in cases:
+      with self.subTest(value=value):
+        path.write_text(value)
+        configure.configure(self.directory)
+        result = json.loads(path.read_text())
+        for key, item in expected.items():
+          self.assertEqual(result[key], item)
+        self.assertEqual(result["mcp"]["servers"]["penpot"], configure.SERVER)
+        self.assertFalse((self.directory / "opencode.json").exists())
+
   def test_conflicting_files_or_symlink_refuse_without_changes(self):
     self.directory.mkdir(parents=True)
     first, second = self.directory / "opencode.json", self.directory / "opencode.jsonc"
@@ -105,6 +157,21 @@ class PenpotConfigTests(unittest.TestCase):
     self.assertNotEqual(result.returncode, 0)
     self.assertIn("Penpot configuration refused", result.stderr)
     self.assertNotIn("synthetic-private-value", result.stdout + result.stderr)
+
+  def test_cli_malformed_jsonc_refuses_and_preserves_private_input(self):
+    directory = self.root / ".config/opencode"
+    directory.mkdir(parents=True)
+    path = directory / "opencode.jsonc"
+    original = b'// Private config\r\n{"username":"synthetic-private-value",,}\r\n'
+    path.write_bytes(original)
+    result = subprocess.run([shutil.which("python3"), str(ROOT / "scripts/configure-penpot.py")],
+                            env={"HOME": str(self.root)}, capture_output=True, text=True, timeout=10)
+    self.assertNotEqual(result.returncode, 0)
+    self.assertIn("Penpot configuration refused", result.stderr)
+    self.assertNotIn("synthetic-private-value", result.stdout + result.stderr)
+    self.assertNotIn("Traceback", result.stderr)
+    self.assertEqual(path.read_bytes(), original)
+    self.assertEqual(list(directory.iterdir()), [path])
 
   @unittest.skipUnless(shutil.which("opencode"), "OpenCode is required for runtime substitution checks")
   def test_runtime_loader_substitutes_synthetic_files_and_empty_failures(self):

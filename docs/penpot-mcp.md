@@ -84,6 +84,8 @@ After setup, the base image merges this server into `/home/container/.config/ope
 
 Only the literal file reference enters the image; OpenCode reads the key at runtime. Existing settings and other servers are retained; the Penpot entry is replaced with these defaults. A sole existing `opencode.jsonc` is updated in place, preserving settings but normalizing formatting and removing comments. Invalid or duplicate keys, symlinks, and simultaneous JSON/JSONC files are refused without overwrite. Output is written atomically with mode `0600`.
 
+JSONC supports line/block comments and a single trailing comma after a value. Double commas, comma-only containers, and missing values are rejected before any write, preserving the original bytes and directory contents. Strings containing comment markers, escaped quotes, or comma/bracket text remain unchanged. CLI refusal returns a nonzero status and a sanitized message without printing config contents.
+
 Project settings can override global defaults, including replacing a same-named server object. Mounting over the OpenCode config directory hides the baked file. OpenCode watches config changes; use `/reload` if needed. The build does not start an OpenCode service or contact MCP. The existing setup script installs OpenCode at `~/.opencode/bin/opencode`; the image verifies that executable before configuring it.
 
 Git builds still use a separate BuildKit secret with ID `token` at `/home/container/.config/token/git`. The Compose mount supplies runtime files only. See [build credentials](image-releases.md#credentials-and-trust).
