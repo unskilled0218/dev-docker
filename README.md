@@ -16,7 +16,7 @@ Builds only the AMD64 `base` and `npm` development images. `bash build-all.sh` p
 
 First publication creates missing packages after verifying authenticated owner inventory; no prior local build or manual package creation is needed.
 
-Builds require both `git.lanCA.crt` and `ntfy.lanCA.crt`. See [certificate inputs and trust](docs/image-releases.md#credentials-and-trust) for default paths and overrides.
+Builds require `git.lanCA.crt`, `ntfy.lanCA.crt`, and `penpot.lanCA.crt`. See [certificate inputs and trust](docs/image-releases.md#credentials-and-trust) for default paths and overrides.
 
 The base image installs Docker from the repository's `scripts/install-docker.sh` before switching users. Validation requires this local installer to be a regular, non-symlinked file and rejects invalid paths before external operations. See [Docker installation](docs/image-releases.md#docker-installation) for build inputs and cleanup.
 

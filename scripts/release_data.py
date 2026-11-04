@@ -32,6 +32,7 @@ GRAPH = [
 CERTIFICATES = (
   ("git.lanCA.crt", "certificate_file", "BUILD_CERT_FILE"),
   ("ntfy.lanCA.crt", "ntfy_certificate_file", "BUILD_NTFY_CERT_FILE"),
+  ("penpot.lanCA.crt", "penpot_certificate_file", "BUILD_PENPOT_CERT_FILE"),
 )
 # Exact upstream contracts; newer/forked versions need characterization before use.
 PACKAGE_API_VERSIONS = {"1.24.7", "28.2.0"}
@@ -74,7 +75,7 @@ def normalized_notes(value, tag):
 def settings(root):
   config = document(regular(root, "scripts/release.json"), SMALL_LIMIT)
   fields = {"schema", "gitea", "repository", "username", "token_file", "certificate_file",
-            "ntfy_certificate_file", "notes", "platforms", "images"}
+            "ntfy_certificate_file", "penpot_certificate_file", "notes", "platforms", "images"}
   require(isinstance(config, dict) and set(config) == fields and type(config["schema"]) is int and
           config["schema"] == 1, "Invalid release configuration fields")
   require(all(text(config[key]) for key in fields - {"schema", "platforms", "images"}), "Invalid setting string")

@@ -151,7 +151,8 @@ elif tool == "docker":
     context = Path(args[-1])
     assert (context / "git.lanCA.crt").read_text() == "test-certificate\n"
     assert (context / "ntfy.lanCA.crt").read_text() == "test-ntfy-certificate\n"
-    assert sorted(item.name for item in context.iterdir()) == ["Dockerfile", "git.lanCA.crt", "ntfy.lanCA.crt", "scripts"]
+    assert (context / "penpot.lanCA.crt").read_text() == "test-penpot-certificate\n"
+    assert sorted(item.name for item in context.iterdir()) == ["Dockerfile", "git.lanCA.crt", "ntfy.lanCA.crt", "penpot.lanCA.crt", "scripts"]
     assert sorted(item.name for item in (context / "scripts").iterdir()) == ["install-docker.sh"]
     assert (context / "scripts/install-docker.sh").read_bytes()
     assert "test-secret" not in " ".join(args)
