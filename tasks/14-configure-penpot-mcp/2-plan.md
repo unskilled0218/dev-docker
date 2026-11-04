@@ -10,6 +10,8 @@ Configure Penpot MCP in the base image and use one read-only token directory for
 
 ## Implementation
 
+The plan review approved this scope without findings. Before choosing the config-writing method, verify the installed OpenCode version preserves literal file references and loads them correctly at runtime using isolated synthetic inputs.
+
 1. Use host files `~/.config/token/git` and `~/.config/token/penpot`.
 2. Replace Compose's Git token mount with `${HOME}/.config/token` → `/home/container/.config/token`. Set `read_only: true` and `bind.create_host_path: false`. Preserve unrelated mounts.
 3. Set Git's default `token_file` in `scripts/release.json` to `~/.config/token/git`. Preserve validation and override precedence: nonempty `GIT_TOKEN`, then nonempty `FORGEJO_TOKEN_FILE`, then configured path. Support the old path through explicit configuration or overrides, not automatic fallback.
@@ -32,6 +34,7 @@ Configure Penpot MCP in the base image and use one read-only token directory for
 - Base and npm images contain the Penpot file reference, not an actual token; unrelated OpenCode settings survive.
 - Git overrides and secret isolation remain intact. Config generation needs no Penpot key; builds still require the Git BuildKit secret.
 - Tests, relevant docs, release metadata, and implementation results describe the change and verification limits.
+- Report config generation, authenticated MCP access, and real-image verification separately. A passing config test does not prove plugin connectivity; baseline failures or blocked builds must remain explicit.
 
 ## Risks
 
