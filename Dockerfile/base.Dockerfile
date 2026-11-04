@@ -16,7 +16,7 @@ RUN usermod -l ${USER_NAME} "$(getent passwd 1000 | cut -d: -f1)" &&\
   groupadd -g 983 docker &&\
   apt-get update &&\
   apt-get install -y \
-  git wget vim unzip curl build-essential jq &&\
+  git wget vim unzip curl build-essential jq python3 &&\
   update-ca-certificates &&\
   rm -rf /var/lib/apt/lists/*
 
@@ -30,5 +30,11 @@ USER ${USER_NAME}
 RUN mkdir -p /home/${USER_NAME}/workdir &&\
   curl -fsSL https://git.lan/dev/agents/raw/branch/main/scripts/setup.sh | bash
 
-RUN --mount=type=secret,id=token,target=/home/container/.config/git/token,uid=1000,required=true \
-  mkdir -p /home/${USER_NAME}/.config/git
+COPY --chown=1000:1000 scripts/configure-penpot.py /tmp/configure-penpot.py
+RUN test -x /home/${USER_NAME}/.opencode/bin/opencode &&\
+  python3 /tmp/configure-penpot.py &&\
+  mkdir -p -m 0700 /home/${USER_NAME}/.config/token &&\
+  rm /tmp/configure-penpot.py
+
+RUN --mount=type=secret,id=token,target=/home/container/.config/token/git,uid=1000,required=true \
+  mkdir -p /home/${USER_NAME}/.config/token

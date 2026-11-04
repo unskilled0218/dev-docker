@@ -90,6 +90,7 @@ def settings(root):
               for name, file, parent in GRAPH]
   require(config["images"] == expected, "Expected the ordered two-image dependency graph")
   regular(root, "scripts/install-docker.sh")
+  regular(root, "scripts/configure-penpot.py")
   for item in expected:
     content = read(regular(root, item["dockerfile"])).decode()
     if item["parent"]:
@@ -729,10 +730,10 @@ def snapshot(root, work, config, local):
     name = "Dockerfile/" + file + ".Dockerfile"
     value = read(regular(root, name)) if local else blob(root, config["commit"], name)
     (context / name).write_bytes(value)
-  name = "scripts/install-docker.sh"
-  value = read(regular(root, name)) if local else blob(root, config["commit"], name)
   (context / "scripts").mkdir()
-  (context / name).write_bytes(value)
+  for name in ("scripts/install-docker.sh", "scripts/configure-penpot.py"):
+    value = read(regular(root, name)) if local else blob(root, config["commit"], name)
+    (context / name).write_bytes(value)
   for name, _, _ in CERTIFICATES:
     shutil.copyfile(work / name, context / name)
 

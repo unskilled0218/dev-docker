@@ -135,16 +135,27 @@ class LocalContractTests(ReleaseFixture):
 
   def test_missing_installer_refuses_all_modes_before_external_operations(self):
     (self.project / "scripts/install-docker.sh").unlink()
-    self.assert_installer_refused_before_external_operations("Required source file is missing")
+    self.assert_source_refused_before_external_operations("Required source file is missing")
 
   def test_symlinked_installer_refuses_all_modes_before_external_operations(self):
     installer = self.project / "scripts/install-docker.sh"
     target = installer.with_name("installer-target.sh")
     installer.rename(target)
     installer.symlink_to(target.name)
-    self.assert_installer_refused_before_external_operations("Symlink source refused")
+    self.assert_source_refused_before_external_operations("Symlink source refused")
 
-  def assert_installer_refused_before_external_operations(self, message):
+  def test_missing_penpot_configurator_refuses_before_external_operations(self):
+    (self.project / "scripts/configure-penpot.py").unlink()
+    self.assert_source_refused_before_external_operations("Required source file is missing")
+
+  def test_symlinked_penpot_configurator_refuses_before_external_operations(self):
+    helper = self.project / "scripts/configure-penpot.py"
+    target = helper.with_name("configurator-target.py")
+    helper.rename(target)
+    helper.symlink_to(target.name)
+    self.assert_source_refused_before_external_operations("Symlink source refused")
+
+  def assert_source_refused_before_external_operations(self, message):
     self.token.unlink()
     self.cert.unlink()
     self.ntfy_cert.unlink()
@@ -607,7 +618,7 @@ class DataBoundaryTests(ReleaseFixture):
         data.snapshot(self.project, work, config, local)
         context = work / "context"
         self.assertEqual(sorted(path.name for path in context.iterdir()), ["Dockerfile", *sorted(originals), "scripts"])
-        self.assertEqual([path.name for path in (context / "scripts").iterdir()], ["install-docker.sh"])
+        self.assertEqual(sorted(path.name for path in (context / "scripts").iterdir()), ["configure-penpot.py", "install-docker.sh"])
         for name, value in originals.items():
           self.assertEqual((context / name).read_bytes(), value)
         self.assertEqual(config["certificate_hash"], data.certificate_fingerprint(originals))
@@ -627,7 +638,7 @@ class DataBoundaryTests(ReleaseFixture):
         data.snapshot(self.project, work, config, local)
         captured = work / "context/scripts/install-docker.sh"
         self.assertEqual(captured.read_bytes(), installer.read_bytes() if local else committed)
-        self.assertEqual([path.name for path in captured.parent.iterdir()], ["install-docker.sh"])
+        self.assertEqual(sorted(path.name for path in captured.parent.iterdir()), ["configure-penpot.py", "install-docker.sh"])
 
   def test_base_dockerfile_copies_all_certificates_before_trust_update(self):
     content = (self.project / "Dockerfile/base.Dockerfile").read_text()
@@ -636,6 +647,46 @@ class DataBoundaryTests(ReleaseFixture):
         copy = "COPY " + name + " /usr/local/share/ca-certificates/" + name + "\n"
         self.assertIn(copy, content)
         self.assertLess(content.index(copy), content.index("update-ca-certificates"))
+
+  def test_configurator_snapshot_uses_worktree_locally_and_commit_for_publication(self):
+    helper = self.project / "scripts/configure-penpot.py"
+    committed = helper.read_bytes()
+    helper.write_bytes(committed + b"\n# Local change\n")
+    for local in (True, False):
+      with self.subTest(local=local):
+        work = self.root / ("local-configurator" if local else "published-configurator")
+        work.mkdir(mode=0o700)
+        with patch.dict(os.environ, self.env, clear=True):
+          data.init(self.project, work, "local")
+        config = ports.document(work / "settings.json") | {"commit": self.state()["commit"]}
+        data.snapshot(self.project, work, config, local)
+        self.assertEqual((work / "context/scripts/configure-penpot.py").read_bytes(),
+                         helper.read_bytes() if local else committed)
+
+  def test_git_token_default_and_explicit_legacy_path(self):
+    config = data.settings(self.project)
+    self.assertEqual(config["token_file"], "~/.config/token/git")
+    legacy = self.root / ".config/git/token"
+    legacy.parent.mkdir(parents=True)
+    legacy.write_text("legacy-synthetic-key")
+    legacy.chmod(0o600)
+    work = self.root / "legacy-credentials"
+    work.mkdir(mode=0o700)
+    with patch.dict(os.environ, {"HOME": str(self.root)}, clear=True):
+      with self.assertRaises(OSError):
+        data.credentials(self.project, work, config)
+      shared = self.root / ".config/token/git"
+      shared.parent.mkdir(parents=True)
+      shared.write_text("shared-synthetic-key")
+      shared.chmod(0o600)
+      data.credentials(self.project, work, config)
+      self.assertEqual((work / "token").read_text(), "shared-synthetic-key")
+    for settings, environment in ((config | {"token_file": "~/.config/git/token"}, {}),
+                                  (config, {"GIT_TOKEN": str(legacy)}),
+                                  (config, {"FORGEJO_TOKEN_FILE": str(legacy)})):
+      with self.subTest(environment=environment), patch.dict(os.environ, {"HOME": str(self.root)} | environment, clear=True):
+        data.credentials(self.project, work, settings)
+        self.assertEqual((work / "token").read_text(), "legacy-synthetic-key")
 
   def test_proxy_maps_preserve_literal_values_without_merging(self):
     complete = self.proxy_config()

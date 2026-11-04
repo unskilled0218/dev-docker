@@ -153,7 +153,8 @@ elif tool == "docker":
     assert (context / "ntfy.lanCA.crt").read_text() == "test-ntfy-certificate\n"
     assert (context / "penpot.lanCA.crt").read_text() == "test-penpot-certificate\n"
     assert sorted(item.name for item in context.iterdir()) == ["Dockerfile", "git.lanCA.crt", "ntfy.lanCA.crt", "penpot.lanCA.crt", "scripts"]
-    assert sorted(item.name for item in (context / "scripts").iterdir()) == ["install-docker.sh"]
+    assert sorted(item.name for item in (context / "scripts").iterdir()) == ["configure-penpot.py", "install-docker.sh"]
+    assert (context / "scripts/configure-penpot.py").read_bytes()
     assert (context / "scripts/install-docker.sh").read_bytes()
     assert "test-secret" not in " ".join(args)
     assert not (context / "token").exists()
