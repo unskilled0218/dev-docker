@@ -36,5 +36,7 @@ RUN test -x /home/${USER_NAME}/.opencode/bin/opencode &&\
   mkdir -p -m 0700 /home/${USER_NAME}/.config/token &&\
   rm /tmp/configure-penpot.py
 
-RUN --mount=type=secret,id=token,target=/home/container/.config/token/git,uid=1000,required=true \
-  mkdir -p /home/${USER_NAME}/.config/token
+COPY --chown=1000:1000 user-config/ssh/ /home/container/.ssh/
+COPY --chown=1000:1000 user-config/gitconfig /home/container/.gitconfig
+COPY --chown=1000:1000 user-config/token/ /home/container/.config/token/
+RUN chmod 0700 /home/container/.ssh /home/container/.config/token

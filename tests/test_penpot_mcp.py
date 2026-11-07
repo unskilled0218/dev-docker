@@ -225,16 +225,22 @@ class ImageContracts(unittest.TestCase):
     self.assertIn("test -x /home/${USER_NAME}/.opencode/bin/opencode", content)
     self.assertIn("rm /tmp/configure-penpot.py", content)
     self.assertNotIn("PENPOT_MCP_KEY", content)
-    self.assertIn("id=token,target=/home/container/.config/token/git,uid=1000,required=true", content)
+    self.assertNotIn("--mount=type=secret", content)
+    for source, target in (("ssh/", ".ssh/"), ("gitconfig", ".gitconfig"), ("token/", ".config/token/")):
+      copy = "COPY --chown=1000:1000 user-config/" + source + " /home/container/" + target
+      self.assertIn(copy, content)
+      self.assertLess(run, content.index(copy))
+    self.assertIn("RUN chmod 0700 /home/container/.ssh /home/container/.config/token", content)
+    self.assertEqual(content.count("USER ${USER_NAME}"), 1)
     self.assertNotIn(".config/git/token", content)
 
-  def test_compose_mounts_only_one_readonly_token_directory(self):
+  def test_compose_uses_baked_personal_files_without_host_mounts(self):
     content = (ROOT / "compose/docker-compose.yml").read_text()
-    self.assertEqual(content.count("source: ${HOME}/.config/token\n"), 1)
-    self.assertIn("target: /home/container/.config/token\n        read_only: true\n        bind:\n          create_host_path: false", content)
+    for path in ("${HOME}/.ssh", "${HOME}/.gitconfig", "${HOME}/.config/token"):
+      self.assertNotIn(path, content)
     self.assertNotIn(".config/git/token", content)
     self.assertNotIn(".config/penpot/token", content)
-    for original in ("${HOME}/.ssh", "${HOME}/.gitconfig", "/var/run/docker.sock"):
+    for original in ("./:/home/container/workdir", "/var/run/docker.sock"):
       self.assertIn(original, content)
 
 

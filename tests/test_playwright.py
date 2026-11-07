@@ -51,8 +51,8 @@ class PlaywrightConfigurationTests(unittest.TestCase):
     self.assertIn("name: development\n", client)
     self.assertIn("PW_TEST_CONNECT_WS_ENDPOINT: ws://playwright:3000/", client)
     self.assertIn("image: git.lan/dev/base:latest", client)
-    self.assertEqual(client.count("create_host_path: false"), 3)
-    self.assertEqual(client.count("read_only: true"), 3)
+    self.assertNotIn("create_host_path:", client)
+    self.assertNotIn("${HOME}/", client)
 
   def test_healthcheck_has_bounded_timing_and_no_package_download(self):
     server = (ROOT / "compose/playwright-compose.yml").read_text()

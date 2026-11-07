@@ -148,21 +148,27 @@ elif tool == "docker":
       time.sleep(60)
     labels = {args[index + 1].split("=", 1)[0]: args[index + 1].split("=", 1)[1]
               for index, value in enumerate(args) if value == "--label"}
+    assert labels["dev.docker.release.user-config"].startswith("sha256:")
     context = Path(args[-1])
     assert (context / "git.lanCA.crt").read_text() == "test-certificate\n"
     assert (context / "ntfy.lanCA.crt").read_text() == "test-ntfy-certificate\n"
     assert (context / "penpot.lanCA.crt").read_text() == "test-penpot-certificate\n"
-    assert sorted(item.name for item in context.iterdir()) == ["Dockerfile", "git.lanCA.crt", "ntfy.lanCA.crt", "penpot.lanCA.crt", "scripts"]
+    assert sorted(item.name for item in context.iterdir()) == ["Dockerfile", "git.lanCA.crt", "ntfy.lanCA.crt", "penpot.lanCA.crt", "scripts", "user-config"]
     assert sorted(item.name for item in (context / "scripts").iterdir()) == ["configure-penpot.py", "install-docker.sh"]
     assert (context / "scripts/configure-penpot.py").read_bytes()
     assert (context / "scripts/install-docker.sh").read_bytes()
     assert "test-secret" not in " ".join(args)
     assert not (context / "token").exists()
-    if short == "base":
-      secret = option("--secret")
-      assert secret.startswith("id=token,src=")
-      assert Path(secret.split("src=", 1)[1]).read_text() == state.get("token", "test-secret")
-    else:
+    personal = context / "user-config"
+    assert sorted(item.name for item in personal.iterdir()) == ["gitconfig", "ssh", "token"]
+    assert (personal / "ssh/id_ed25519").read_text().splitlines()[1] == "synthetic-ssh-payload"
+    assert (personal / "gitconfig").read_text() == "[user]\n  name = Container Test\n"
+    assert (personal / "token/git").read_text() == "baked-git-secret\n"
+    assert (personal / "token/penpot").read_text() == "baked-penpot-secret"
+    for copied_path in personal.rglob("*"):
+      assert copied_path.stat().st_mode & 0o077 == 0
+    assert "--secret" not in args
+    if short != "base":
       reference = option("--build-arg").split("=", 1)[1]
       if "--load" in args:
         assert reference in state["local_images"], "Child used an unverified parent"

@@ -43,6 +43,8 @@ class ReleaseFixture(unittest.TestCase):
     config = json.loads(settings.read_text())
     config["notes"] = self.notes_path
     settings.write_text(json.dumps(config))
+    self.home = self.root / "credential home"
+    self.home.mkdir()
     self.real_git = shutil.which("git")
     self.git("init", "--initial-branch=main")
     self.git("config", "user.email", "test@localhost")
@@ -65,6 +67,15 @@ class ReleaseFixture(unittest.TestCase):
     self.ntfy_cert.write_text("test-ntfy-certificate\n")
     self.penpot_cert = self.root / "penpot certificate"
     self.penpot_cert.write_text("test-penpot-certificate\n")
+    self.ssh = self.home / ".ssh"
+    self.ssh.mkdir(parents=True, mode=0o700)
+    (self.ssh / "id_ed25519").write_text("-----BEGIN OPENSSH PRIVATE KEY-----\nsynthetic-ssh-payload\n-----END OPENSSH PRIVATE KEY-----\n")
+    self.gitconfig = self.home / ".gitconfig"
+    self.gitconfig.write_text("[user]\n  name = Container Test\n")
+    self.tokens = self.home / ".config/token"
+    self.tokens.mkdir(parents=True, mode=0o700)
+    (self.tokens / "git").write_text("baked-git-secret\n")
+    (self.tokens / "penpot").write_text("baked-penpot-secret")
     self.docker_config = self.root / "original docker"
     self.docker_config.mkdir()
     self.state_path = self.root / "state.json"
@@ -80,14 +91,19 @@ class ReleaseFixture(unittest.TestCase):
                     TEST_STATE=str(self.state_path), REAL_GIT=self.real_git,
                     FORGEJO_TOKEN_FILE=str(self.token), BUILD_CERT_FILE=str(self.cert),
                     BUILD_NTFY_CERT_FILE=str(self.ntfy_cert),
-                    BUILD_PENPOT_CERT_FILE=str(self.penpot_cert),
+                     BUILD_PENPOT_CERT_FILE=str(self.penpot_cert),
+                     HOME=str(self.home), BUILD_SSH_DIR=str(self.ssh),
+                     BUILD_GITCONFIG_FILE=str(self.gitconfig), BUILD_TOKEN_DIR=str(self.tokens),
+                     GIT_CONFIG_GLOBAL="/dev/null", GIT_CONFIG_NOSYSTEM="1",
                     DOCKER_CONFIG=str(self.docker_config), TMPDIR=str(self.root))
     for name in ("GIT_TOKEN", "GIT_USERNAME", "FORGEJO_USERNAME", "DOCKER_CONTEXT", "DOCKER_HOST",
                  "BUILDX_CONFIG", "RELEASE_LOCK_FD"):
       self.env.pop(name, None)
 
   def git(self, *args):
-    return subprocess.check_output([self.real_git, "-C", str(self.project), *args], stderr=subprocess.DEVNULL, text=True)
+    environment = dict(os.environ, HOME=str(self.home), GIT_CONFIG_GLOBAL="/dev/null", GIT_CONFIG_NOSYSTEM="1")
+    return subprocess.check_output([self.real_git, "-C", str(self.project), *args], env=environment,
+                                   stderr=subprocess.DEVNULL, text=True)
 
   def state(self):
     return json.loads(self.state_path.read_text())
@@ -124,6 +140,7 @@ class ReleaseFixture(unittest.TestCase):
 
 class LocalContractTests(ReleaseFixture):
   def test_validation_has_no_external_or_filesystem_effects(self):
+    shutil.rmtree(self.home)
     self.token.unlink()
     self.cert.unlink()
     self.ntfy_cert.unlink()
@@ -617,7 +634,7 @@ class DataBoundaryTests(ReleaseFixture):
         self.penpot_cert.write_bytes(b"changed-penpot")
         data.snapshot(self.project, work, config, local)
         context = work / "context"
-        self.assertEqual(sorted(path.name for path in context.iterdir()), ["Dockerfile", *sorted(originals), "scripts"])
+        self.assertEqual(sorted(path.name for path in context.iterdir()), ["Dockerfile", *sorted(originals), "scripts", "user-config"])
         self.assertEqual(sorted(path.name for path in (context / "scripts").iterdir()), ["configure-penpot.py", "install-docker.sh"])
         for name, value in originals.items():
           self.assertEqual((context / name).read_bytes(), value)

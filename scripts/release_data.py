@@ -34,6 +34,15 @@ CERTIFICATES = (
   ("ntfy.lanCA.crt", "ntfy_certificate_file", "BUILD_NTFY_CERT_FILE"),
   ("penpot.lanCA.crt", "penpot_certificate_file", "BUILD_PENPOT_CERT_FILE"),
 )
+USER_INPUTS = (
+  ("ssh", "~/.ssh", "BUILD_SSH_DIR", True),
+  ("gitconfig", "~/.gitconfig", "BUILD_GITCONFIG_FILE", False),
+  ("token", "~/.config/token", "BUILD_TOKEN_DIR", True),
+)
+USER_FILE_LIMIT = 1024 * 1024
+USER_TOTAL_LIMIT = 16 * 1024 * 1024
+USER_ENTRY_LIMIT = 1024
+USER_DEPTH_LIMIT = 16
 # Exact upstream contracts; newer/forked versions need characterization before use.
 PACKAGE_API_VERSIONS = {"1.24.7", "28.2.0"}
 
@@ -175,12 +184,108 @@ def certificate_fingerprint(values):
   return sha(canonical({name: sha(value) for name, value in values.items()}))
 
 
+def user_input_paths():
+  return {name: Path(os.path.abspath(Path(os.environ.get(override) or default).expanduser()))
+          for name, default, override, _ in USER_INPUTS}
+
+
+def user_config(root):
+  """Capture bounded trees without following source links or opening special files."""
+  records = {}
+  total = 0
+
+  def capture(parent, filename, name, directory, depth):
+    nonlocal total
+    require(len(records) < USER_ENTRY_LIMIT and depth <= USER_DEPTH_LIMIT, "User input limit exceeded")
+    before = os.stat(filename, dir_fd=parent, follow_symlinks=False)
+    require(stat.S_ISDIR(before.st_mode) if directory else stat.S_ISREG(before.st_mode),
+            "Unexpected user input type")
+    flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
+    if directory:
+      flags |= os.O_DIRECTORY
+    descriptor = os.open(filename, flags, dir_fd=parent)
+    try:
+      metadata = os.fstat(descriptor)
+      require((metadata.st_dev, metadata.st_ino) == (before.st_dev, before.st_ino), "User input changed during capture")
+      require(stat.S_ISDIR(metadata.st_mode) if directory else stat.S_ISREG(metadata.st_mode),
+              "Unexpected user input type")
+      if directory:
+        records[name] = (0o700, None)
+        with os.scandir(descriptor) as entries:
+          # Bound the directory listing too, not just the eventual file reads.
+          children = []
+          for entry in entries:
+            require(len(children) + len(records) < USER_ENTRY_LIMIT, "User input limit exceeded")
+            children.append((entry.name, entry.is_dir(follow_symlinks=False)))
+        for child, is_directory in sorted(children):
+          capture(descriptor, child, name + "/" + child, is_directory, depth + 1)
+      else:
+        require(metadata.st_size <= USER_FILE_LIMIT and total + metadata.st_size <= USER_TOTAL_LIMIT,
+                "User input size exceeded")
+        chunks = []
+        size = 0
+        while True:
+          chunk = os.read(descriptor, min(65536, USER_FILE_LIMIT + 1 - size))
+          if not chunk:
+            break
+          size += len(chunk)
+          require(size <= USER_FILE_LIMIT and total + size <= USER_TOTAL_LIMIT, "User input size exceeded")
+          chunks.append(chunk)
+        after = os.fstat(descriptor)
+        require((metadata.st_size, metadata.st_mtime_ns, metadata.st_ctime_ns) ==
+                (after.st_size, after.st_mtime_ns, after.st_ctime_ns) and size == metadata.st_size,
+                "User input changed during capture")
+        total += size
+        records[name] = (0o700 if metadata.st_mode & stat.S_IXUSR else 0o600, b"".join(chunks))
+    finally:
+      os.close(descriptor)
+
+  paths = user_input_paths()
+  for name, _, override, directory in USER_INPUTS:
+    descriptor = None
+    try:
+      path = paths[name]
+      require(not path.is_relative_to(root.resolve()), "Keep user inputs outside project")
+      descriptor = os.open("/", os.O_RDONLY | os.O_DIRECTORY)
+      for part in path.parts[1:-1]:
+        next_descriptor = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=descriptor)
+        os.close(descriptor)
+        descriptor = next_descriptor
+      capture(descriptor, path.name, name, directory, 0)
+    except (OSError, Refusal):
+      raise Refusal("Invalid, unreadable, or oversized user input; check " + override) from None
+    finally:
+      if descriptor is not None:
+        os.close(descriptor)
+  return records
+
+
+def user_config_fingerprint(records):
+  return sha(canonical({name: {"mode": mode, "digest": None if value is None else sha(value)}
+                        for name, (mode, value) in records.items()}))
+
+
+def save_user_config(work, records):
+  destination = work / "user-config"
+  destination.mkdir(mode=0o700)
+  for name, (mode, value) in sorted(records.items()):
+    path = destination / name
+    if value is None:
+      path.mkdir(mode=mode)
+    else:
+      path.write_bytes(value)
+    path.chmod(mode)
+
+
 def init(root, work, mode):
   config = settings(root)
   values = certificates(config)
+  personal = user_config(root)
   for name, value in values.items():
     (work / name).write_bytes(value)
   config["certificate_hash"] = certificate_fingerprint(values)
+  save_user_config(work, personal)
+  config["user_config_hash"] = user_config_fingerprint(personal)
   if mode == "publish":
     config["commit"] = source(root, config)
     config["body"] = normalized_notes(blob(root, config["commit"], config["notes"], SMALL_LIMIT), config["tag"])
@@ -275,6 +380,17 @@ def build_logs(root, work, config):
     for value in filter(None, paths):
       path = Path(value).expanduser()
       values.extend((value, str(path), str((root / path).absolute())))
+    for path in user_input_paths().values():
+      values.append(str(path))
+    values.extend(os.environ.get(override) or default for _, default, override, _ in USER_INPUTS)
+    for path in (work / "user-config").rglob("*"):
+      if path.is_file():
+        # The record filter cannot accept multiline values. Match normalized lines
+        # from captured files, never a second read of the caller's live secrets.
+        value = read(regular(work / "user-config", str(path.relative_to(work / "user-config"))),
+                     USER_FILE_LIMIT).decode("utf-8", errors="replace")
+        values.extend(release_logs.CONTROLS.sub("", release_logs.ESCAPES.sub("", line)).strip()
+                      for line in value.splitlines())
   except (OSError, ValueError, Refusal):
     raise Refusal(message) from None
   return release_logs.BuildLogs(values)
@@ -354,7 +470,8 @@ def labels_for(config):
           "org.opencontainers.image.revision": config["commit"],
           "dev.docker.release.config": config["config_hash"],
           "dev.docker.release.scripts": config["script_hash"],
-          "dev.docker.release.certificate": config["certificate_hash"]}
+          "dev.docker.release.certificate": config["certificate_hash"],
+          "dev.docker.release.user-config": config["user_config_hash"]}
 
 
 def positive_id(value):
@@ -617,7 +734,8 @@ def inventory_scan(root, work, config):
 def base_identity(config):
   return {"format": "dev-docker-release/1", "repository": config["repository"], "version": config["version"],
           "tag": config["tag"], "commit": config["commit"], "config": config["config_hash"],
-          "scripts": config["script_hash"], "certificate": config["certificate_hash"], "platforms": config["platforms"],
+          "scripts": config["script_hash"], "certificate": config["certificate_hash"],
+          "user_config": config["user_config_hash"], "platforms": config["platforms"],
           "prefix": config["prefix"], "notes": {"path": config["notes"], "digest": sha(config["body"].encode())}}
 
 
@@ -670,6 +788,7 @@ def unchanged(root, work, config):
   require(all(config[key] == value for key, value in current.items()), "Captured settings/scripts changed")
   source(root, config, config["commit"])
   require(certificate_fingerprint(certificates(config)) == config["certificate_hash"], "Build certificate changed")
+  require(user_config_fingerprint(user_config(root)) == config["user_config_hash"], "Build user configuration changed")
 
 
 def startup(root, work, config):
@@ -736,6 +855,7 @@ def snapshot(root, work, config, local):
     (context / name).write_bytes(value)
   for name, _, _ in CERTIFICATES:
     shutil.copyfile(work / name, context / name)
+  shutil.copytree(work / "user-config", context / "user-config")
 
 
 def build_args(work, config, name, local):
@@ -744,7 +864,8 @@ def build_args(work, config, name, local):
   arguments = ["docker", "buildx", "build", "--progress=plain", "--platform", "linux/amd64", "--provenance=false", "--sbom=false",
                "--metadata-file", str(work / "build.json"), "--file", str(work / "context" / item["dockerfile"])]
   if local:
-    arguments += ["--load", "--pull=false", "--tag", name + ":latest"]
+    arguments += ["--load", "--pull=false", "--tag", name + ":latest",
+                  "--label", "dev.docker.release.user-config=" + config["user_config_hash"]]
   else:
     arguments += ["--push", "--tag", full_image(config, name) + ":" + staging(config)]
     for key, value in labels_for(config).items():
@@ -758,9 +879,6 @@ def build_args(work, config, name, local):
     # Local image IDs are config digests, not registry manifest references. BuildKit
     # resolves the checked tag from the Docker-driver store with --pull=false.
     arguments += ["--label", "dev.docker.release.parent=" + (state["digests"][parent] if local else reference)]
-  else:
-    # Preserve the token secret requested by the current base Dockerfile (user commit d15c1af).
-    arguments += ["--secret", "id=token,src=" + str(work / "token")]
   return arguments + [str(work / "context")]
 
 
