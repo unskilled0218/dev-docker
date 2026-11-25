@@ -20,13 +20,12 @@ The image and Compose service run the emulator as UID 1000 and primary GID 1000.
 
 ```sh
 export KVM_GID=$(stat -c %g /dev/kvm)
-export COMPOSE_FILE=compose/android.yml
-docker compose up -d --build --wait --wait-timeout 360
-docker compose exec android id
-docker compose exec android adb devices
+docker compose -f compose/android.yml up -d --build --wait --wait-timeout 360
+docker compose -f compose/android.yml exec android id
+docker compose -f compose/android.yml exec android adb devices
 ```
 
-Expect `id` to report UID 1000 and primary GID 1000. Expect `emulator-5554` with status `device`. Keep host loopback ports 5037, 5554, and 5555 free before startup. Compose creates the virtual device on first start and reuses it on later starts. Stop with `docker compose down` in the same shell. The named volume retains apps and device data.
+Expect `id` to report UID 1000 and primary GID 1000. Expect `emulator-5554` with status `device`. Keep host loopback ports 5037, 5554, and 5555 free before startup. Compose creates the virtual device on first start and reuses it on later starts. Stop with `docker compose -f compose/android.yml down` in the same shell. The named volume retains apps and device data.
 
 ## Use the same Android device from multiple containers
 
