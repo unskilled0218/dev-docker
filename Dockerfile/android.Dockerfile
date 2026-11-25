@@ -15,6 +15,9 @@ RUN groupadd --gid 1000 android && useradd --uid 1000 --gid android --create-hom
 USER 1000:1000
 WORKDIR /home/android
 
+RUN install -d -m 0700 /home/android/console-auth \
+  && ln -s console-auth/.emulator_console_auth_token /home/android/.emulator_console_auth_token
+
 RUN curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o /tmp/tools.zip \
   && unzip -q /tmp/tools.zip -d "$ANDROID_HOME/cmdline-tools" \
   && mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest" \

@@ -6,6 +6,7 @@ The standalone `android` Compose service runs the headless emulator. Dev contain
   - [Enable KVM on the Ubuntu host](#enable-kvm-on-the-ubuntu-host)
   - [Start the standalone Compose VM](#start-the-standalone-compose-vm)
   - [Use the same Android device from multiple containers](#use-the-same-android-device-from-multiple-containers)
+  - [Simulate calls and SMS from a dev container](#simulate-calls-and-sms-from-a-dev-container)
   - [Control Android from your laptop](#control-android-from-your-laptop)
 
 ## Enable KVM on the Ubuntu host
@@ -42,6 +43,33 @@ adb -s emulator-5554 shell getprop sys.boot_completed
 Expect `emulator-5554` with status `device` and a boot result of `1`. Port 5037 belongs to the shared ADB server; do not publish it or run `adb kill-server` from a client. A bridge-networked container has its own loopback, so this address will not reach the owner there.
 
 All clients share one screen, installed apps, and app data. Run UI tests one at a time. Stopping the owner disconnects every client.
+
+## Simulate calls and SMS from a dev container
+
+The `android` service stores its console token in the `android-vm-console-auth` volume. Run the build and startup command above first. In the trusted client's Compose file, mount that volume read-only (replace `app` with the client service name):
+
+```yaml
+services:
+  app:
+    volumes:
+      - console-auth:/run/android-console:ro
+volumes:
+  console-auth:
+    external: true
+    name: android-vm-console-auth
+```
+
+Recreate the client container. Inside it, run as UID 1000 and link the shared token into your home directory. The link replaces any old manual token copy. Then run console commands directly:
+
+```sh
+ln -sfn /run/android-console/.emulator_console_auth_token "$HOME/.emulator_console_auth_token"
+adb -s emulator-5554 emu gsm list
+adb -s emulator-5554 emu gsm call 5550100
+adb -s emulator-5554 emu gsm cancel 5550100
+adb -s emulator-5554 emu sms send 5550100 'Test message'
+```
+
+`gsm list` returns `OK` with no entries when there are no active calls. Recreate the link if the client home is replaced. The client does not need a Docker socket or the emulator's data volume.
 
 ## Control Android from your laptop
 

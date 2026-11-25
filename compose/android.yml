@@ -15,10 +15,17 @@ services:
       - "${KVM_GID:?Set KVM_GID to the numeric group of /dev/kvm}"
     volumes:
       - android-data:/home/android/.android
+      - console-auth:/home/android/console-auth
     command:
       - /bin/sh
       - -ec
       - |
+        token=/home/android/console-auth/.emulator_console_auth_token
+        if [ ! -s "$$token" ]; then
+          (umask 077; tr -d '\n' < /proc/sys/kernel/random/uuid > "$$token.tmp")
+          test -s "$$token.tmp" && mv "$$token.tmp" "$$token"
+        fi
+        test -s "$$token"
         if [ ! -f ~/.android/avd/android-vm.ini ]; then
           echo no | avdmanager create avd -n android-vm -k 'system-images;android-36;google_apis;x86_64'
         fi
@@ -33,3 +40,5 @@ services:
 
 volumes:
   android-data:
+  console-auth:
+    name: android-vm-console-auth
