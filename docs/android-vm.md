@@ -16,13 +16,17 @@ Run `ls -l /dev/kvm` on the x86_64 Ubuntu host. If the device is missing, check 
 
 On an x86_64 Linux Docker host with `/dev/kvm`, run these commands from the repository root. Use Docker Compose 2.17 or later. The build downloads Google's SDK tools and API 36 system image and accepts the Android SDK licenses. Review [the license terms](https://developer.android.com/studio/terms) before building.
 
+The image and Compose service run the emulator as UID 1000 and primary GID 1000. Compose adds the supplementary `KVM_GID` for KVM access. If reusing an existing `android-data` volume, ensure UID 1000 can write its contents.
+
 ```sh
 export KVM_GID=$(stat -c %g /dev/kvm)
-docker compose -f compose/android.yml up -d --build --wait --wait-timeout 360
-docker compose -f compose/android.yml exec android adb devices
+export COMPOSE_FILE=compose/android.yml
+docker compose up -d --build --wait --wait-timeout 360
+docker compose exec android id
+docker compose exec android adb devices
 ```
 
-Expect `emulator-5554` with status `device`. Keep host loopback ports 5037, 5554, and 5555 free before startup. Compose creates the virtual device on first start and reuses it on later starts. Stop with `docker compose -f compose/android.yml down` in the same shell. The named volume retains apps and device data.
+Expect `id` to report UID 1000 and primary GID 1000. Expect `emulator-5554` with status `device`. Keep host loopback ports 5037, 5554, and 5555 free before startup. Compose creates the virtual device on first start and reuses it on later starts. Stop with `docker compose down` in the same shell. The named volume retains apps and device data.
 
 ## Use the same Android device from multiple containers
 

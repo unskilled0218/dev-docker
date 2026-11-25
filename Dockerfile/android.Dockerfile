@@ -9,9 +9,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV ANDROID_HOME=/opt/android-sdk
 ENV PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH
 
-RUN useradd --create-home android && mkdir -p "$ANDROID_HOME/cmdline-tools" \
+RUN groupadd --gid 1000 android && useradd --uid 1000 --gid android --create-home android \
+  && mkdir -p "$ANDROID_HOME/cmdline-tools" \
   && chown -R android:android "$ANDROID_HOME"
-USER android
+USER 1000:1000
 WORKDIR /home/android
 
 RUN curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o /tmp/tools.zip \

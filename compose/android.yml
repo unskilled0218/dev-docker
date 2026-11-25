@@ -7,6 +7,7 @@ services:
       context: ../Dockerfile
       dockerfile: android.Dockerfile
     init: true
+    user: "1000:1000"
     network_mode: host
     devices:
       - /dev/kvm:/dev/kvm
