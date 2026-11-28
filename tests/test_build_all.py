@@ -235,9 +235,9 @@ class LocalContractTests(ReleaseFixture):
 
   def test_source_and_target_preflight_refuse_before_credentials_or_writes(self):
     self.token.unlink()
-    self.change(remote="ssh://git@git.lan/dev/wrong.git")
+    self.change(remote="ssh://git@git.l.an/dev/wrong.git")
     self.assert_refused_without_writes(self.run_script())
-    self.change(remote="ssh://git@git.lan/dev/dev-docker.git", remote_commit="0" * 40)
+    self.change(remote="ssh://git@git.l.an/dev/dev-docker.git", remote_commit="0" * 40)
     self.assert_refused_without_writes(self.run_script())
     self.change(remote_commit=self.state()["commit"])
     (self.project / "dirty").write_text("not committed")
@@ -344,7 +344,7 @@ class PublicationTests(ReleaseFixture):
     proxies = self.proxy_config()
     config = self.docker_config / "config.json"
     original = json.dumps({"proxies": proxies, "auths": {"foreign": {"auth": "foreign-auth"}},
-                           "credsStore": "foreign-helper", "credHelpers": {"git.lan": "foreign-helper"}}).encode()
+                           "credsStore": "foreign-helper", "credHelpers": {"git.l.an": "foreign-helper"}}).encode()
     config.write_bytes(original)
     self.change(expected_proxy_hash=ports.sha(ports.canonical(proxies)))
     result = self.run_script()
@@ -367,7 +367,7 @@ class PublicationTests(ReleaseFixture):
     result = self.run_script()
     self.assertNotEqual(result.returncode, 0)
     state = self.state()
-    self.assertEqual(state["effects"], [["login", "git.lan"]])
+    self.assertEqual(state["effects"], [["login", "git.l.an"]])
     self.assertEqual(state["proxy_checks"], 2)
     self.assertFalse(Path(state["private_config"]).exists())
     self.assertFalse(list(self.root.glob("dev-docker-release.*")))
@@ -430,7 +430,7 @@ class PublicationTests(ReleaseFixture):
 
   def assert_second_image_refusals(self):
     manifest = {"schemaVersion": 2, "foreign": True}
-    self.change(manifests={"git.lan/dev/npm/" + self.tag: manifest})
+    self.change(manifests={"git.l.an/dev/npm/" + self.tag: manifest})
     result = self.run_script()
     self.assert_refused_without_writes(result)
     self.assertIn("Orphan version alias", result.stderr)
@@ -460,7 +460,7 @@ class PublicationTests(ReleaseFixture):
     self.assertNotEqual(self.run_script().returncode, 0)
     state = self.state()
     staged = next(value for key, value in state["manifests"].items() if "/base/stage-" in key)
-    state["manifests"]["git.lan/dev/base/" + self.tag] = staged
+    state["manifests"]["git.l.an/dev/base/" + self.tag] = staged
     state["effects"] = []
     state.pop("fail")
     self.store(state)
@@ -734,7 +734,7 @@ class DataBoundaryTests(ReleaseFixture):
     plugins.mkdir()
     (plugins / "docker-buildx").write_text("test plugin")
     (self.docker_config / "config.json").write_text(json.dumps({"auths": {"foreign": {"auth": "secret"}},
-      "credsStore": "helper", "credHelpers": {"git.lan": "helper"}, "cliPluginsExtraDirs": [str(plugins)],
+      "credsStore": "helper", "credHelpers": {"git.l.an": "helper"}, "cliPluginsExtraDirs": [str(plugins)],
       "proxies": self.proxy_config()}))
     original = (self.docker_config / "config.json").read_bytes()
     work = self.root / "private"
@@ -762,7 +762,7 @@ class DataBoundaryTests(ReleaseFixture):
   def test_registry_foreign_token_realm_refused(self):
     from unittest.mock import patch
     with patch.object(ports, "http", return_value=(401, {"www-authenticate": 'Bearer realm="https://foreign/token"'}, b"")) as http:
-      self.assertRaises(ports.Refusal, ports.registry, self.root, "https://git.lan", "git.lan/dev/base", "manifests", "latest")
+      self.assertRaises(ports.Refusal, ports.registry, self.root, "https://git.l.an", "git.l.an/dev/base", "manifests", "latest")
       self.assertEqual(http.call_count, 1)
 
   def test_guard_rejects_changed_confirmed_tag_before_any_write(self):

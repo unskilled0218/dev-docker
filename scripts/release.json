@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "gitea": "https://git.lan",
+  "gitea": "https://git.l.an",
   "repository": "dev/dev-docker",
   "username": "dev",
   "token_file": "~/.config/token/git",

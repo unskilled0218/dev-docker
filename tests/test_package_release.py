@@ -238,7 +238,7 @@ class PackagePublicationTests(ReleaseFixture):
     self.git("add", "Dockerfile")
     self.git("commit", "-m", "Remove excluded inputs from test fixture only")
     excluded = ("my-base", "npm-non-root", "android-dev", "android", "tauri-dev", "switchboard")
-    manifests = {"git.lan/dev/" + name + "/" + self.tag: {"foreign": True} for name in excluded}
+    manifests = {"git.l.an/dev/" + name + "/" + self.tag: {"foreign": True} for name in excluded}
     self.change(commit=self.git("rev-parse", "HEAD").strip(), manifests=manifests)
     self.assert_success(self.run_script("--validate"))
     self.assert_success(self.run_script("--build-only"))

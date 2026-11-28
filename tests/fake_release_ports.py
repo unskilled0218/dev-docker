@@ -87,7 +87,7 @@ def verify_proxy_config():
 if tool == "git":
   actual = args[2:] if args[:1] == ["-C"] else args
   if actual[:2] == ["remote", "get-url"]:
-    print(state.get("remote", "ssh://git@git.lan/dev/dev-docker.git"))
+    print(state.get("remote", "ssh://git@git.l.an/dev/dev-docker.git"))
   elif actual[:1] == ["ls-remote"]:
     if "--tags" in actual:
       for tag, oid in state["tags"].items():
@@ -125,11 +125,11 @@ elif tool == "docker":
     directory = Path(os.environ["DOCKER_CONFIG"])
     config = json.loads((directory / "config.json").read_text())
     assert "credsStore" not in config and "credHelpers" not in config
-    config["auths"] = {"git.lan": {"auth": base64.b64encode(b"dev:test-secret").decode()}}
+    config["auths"] = {"git.l.an": {"auth": base64.b64encode(b"dev:test-secret").decode()}}
     (directory / "config.json").write_text(json.dumps(config))
     state["private_config"] = str(directory)
     state["buildx_config"] = os.environ.get("BUILDX_CONFIG")
-    effect("login", "git.lan")
+    effect("login", "git.l.an")
   elif args[:2] == ["buildx", "build"]:
     verify_proxy_config()
     assert "--progress=plain" in args
@@ -286,7 +286,7 @@ elif tool == "curl":
     body = [{"name": name} for name in state["tags"]] if parse_qs(url.query).get("page") == ["1"] else []
   elif route.startswith("/v2/"):
     repository, kind, reference = route[4:].rsplit("/", 2)
-    key = "git.lan/" + repository + "/" + reference
+    key = "git.l.an/" + repository + "/" + reference
     if state.get("revert_pending") and state["revert_pending"][0] == key:
       state["revert_pending"][1] -= 1
       if state["revert_pending"][1] == 0:
@@ -296,7 +296,7 @@ elif tool == "curl":
     body = state["manifests" if kind == "manifests" else "blobs"].get(key)
     if body is None:
       code, body = 404, {"errors": [{"code": "MANIFEST_UNKNOWN"}]}
-    if state.get("malformed_second") and key == "git.lan/dev/npm/" + state["release_tag"]:
+    if state.get("malformed_second") and key == "git.l.an/dev/npm/" + state["release_tag"]:
       body = b"not json"
   else:
     raise AssertionError("Unexpected HTTP route")

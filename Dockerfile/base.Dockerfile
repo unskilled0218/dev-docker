@@ -26,7 +26,7 @@ RUN bash /tmp/install-docker.sh &&\
 USER ${USER_NAME}
 
 RUN mkdir -p /home/${USER_NAME}/workdir &&\
-  curl -fsSL https://git.lan/dev/agents/raw/branch/main/scripts/setup.sh | bash
+  curl -fsSL https://git.l.an/dev/agents/raw/branch/main/scripts/setup.sh | bash
 
 COPY --chown=1000:1000 scripts/configure-penpot.py /tmp/configure-penpot.py
 RUN test -x /home/${USER_NAME}/.opencode/bin/opencode &&\

@@ -347,7 +347,7 @@ class BuildLogIntegrationTests(ReleaseFixture):
     self.assertNotEqual(result.returncode, 0)
     self.assertIn("ERROR: synthetic setup instruction failed", result.stderr)
     self.assertNotIn("test-secret", result.stdout + result.stderr)
-    self.assertEqual(self.state()["effects"], [["login", "git.lan"]])
+    self.assertEqual(self.state()["effects"], [["login", "git.l.an"]])
     self.assertFalse(list(self.root.glob("dev-docker-release.*")))
 
   def test_publication_phase_order_and_completed_retry(self):

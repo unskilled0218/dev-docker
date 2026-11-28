@@ -48,7 +48,7 @@ Use a separate Compose project name for each independent client:
 name: example-browser-client
 services:
   client:
-    image: git.lan/dev/npm:latest
+    image: git.l.an/dev/npm:latest
     command: ["sleep", "infinity"]
     environment:
       PW_TEST_CONNECT_WS_ENDPOINT: ws://playwright:3000/
@@ -134,7 +134,7 @@ Only attach trusted containers: any container on this network can control the br
 ```bash
 python3 -B -m unittest discover -s tests -v
 node --test tests/test_playwright.cjs
-python3 tests/run_playwright_smoke.py --client-image git.lan/dev/npm:latest
+python3 tests/run_playwright_smoke.py --client-image git.l.an/dev/npm:latest
 docker compose -f compose/playwright-compose.yml config --quiet
 docker compose -f compose/docker-compose.yml config --quiet
 ```

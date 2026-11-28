@@ -1,6 +1,6 @@
 services:
   app:
-    image: git.lan/dev/base:latest
+    image: git.l.an/dev/base:latest
     container_name: project
     stdin_open: true
     tty: true
