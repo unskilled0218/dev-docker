@@ -7,12 +7,12 @@
     - [RN run android on linux](#rn-run-android-on-linux)
 
 ```bash
-bash build-all.sh --validate
-bash build-all.sh --build-only
-bash build-all.sh
+./scripts/release.sh --validate
+./scripts/release.sh --build-only
+./scripts/release.sh
 ```
 
-Builds only the AMD64 `base` and `npm` development images. `bash build-all.sh` publishes version and `latest` tags from clean, pushed `main` and links both packages to this repository. Android, Tauri, and Switchboard Dockerfiles remain for manual use. See [image releases](docs/image-releases.md) for settings, package visibility, credentials, recovery, and verification limits, including [release error guidance](docs/image-releases.md#http-error-diagnostics).
+Version `0.1.26` uses plain version tags (for example, `0.1.26`). Builds only the AMD64 `base` and `npm` development images. `./scripts/release.sh` publishes version and `latest` tags from clean, pushed `main` and links both packages to this repository. Android, Tauri, and Switchboard Dockerfiles remain for manual use. See [image releases](docs/image-releases.md) for settings, package visibility, credentials, recovery, and verification limits, including [release error guidance](docs/image-releases.md#http-error-diagnostics).
 
 First publication creates missing packages after verifying authenticated owner inventory; no prior local build or manual package creation is needed.
 

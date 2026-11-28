@@ -17,22 +17,22 @@
 ## Commands
 
 ```bash
-bash build-all.sh --validate
-bash build-all.sh --build-only
-bash build-all.sh
+./scripts/release.sh --validate
+./scripts/release.sh --build-only
+./scripts/release.sh
 ```
 
 Validation needs Bash and Python 3.11+ only. It reads local settings, version, notes, and source paths without credentials, locks, temporary files, Docker, or network access. Commands work from any directory.
 
-No arguments publishes root `VERSION` as `v<VERSION>` and `latest` for all images. Update `VERSION`, `scripts/release.json`'s notes path, and matching committed release notes together; commit and push clean `main` before publication. Historical notes remain in `docs/releases/`; README has no duplicate version source.
+No arguments publishes root `VERSION` as `<VERSION>` and `latest` for all images. Update `VERSION`, `scripts/release.json`'s notes path, and matching committed release notes together; commit and push clean `main` before publication. Historical notes remain in `docs/releases/`; keep README’s example current. `bash build-all.sh` remains available. A matching legacy `v<VERSION>` Git tag or Gitea release blocks publication. Older stable releases under either naming convention are allowed; newer ones block publication. Historical releases are not rewritten.
 
-`--help` and `-h` show usage using Bash only. A positional tag is deprecated but accepted only when it exactly equals `v<VERSION>`, with or without `--build-only`, in either order. Mismatched tags (including explicit `latest`), duplicate tags/flags, unknown flags, and help/validation combined with other arguments are refused before external effects. There is no arbitrary-tag publication override.
+`--help` and `-h` show usage using Bash only. A positional tag is deprecated but accepted only when it exactly equals `<VERSION>`, with or without `--build-only`, in either order. Mismatched tags (including explicit `latest`), duplicate tags/flags, unknown flags, and help/validation combined with other arguments are refused before external effects. There is no arbitrary-tag publication override.
 
 ## Settings and prerequisites
 
 Review `scripts/release.json` before use. Its strict schema names this repository (`https://git.l.an`, `dev/dev-docker`), login, credential/certificate paths, notes, AMD64 platform, and the ordered two-image graph. Unknown/duplicate fields, path traversal, symlink source files, changed graph order/parents, and unsupported platforms are refused. There is no runtime download or self-update of release tooling.
 
-Only `base` and `npm` build or publish, in that order. Release names are `git.l.an/dev/base` and `git.l.an/dev/npm`; npm uses the verified base digest, not a mutable parent tag. Both receive `v<VERSION>` and `latest` aliases. Package association is explicitly verified; OCI source labels alone do not establish repository visibility. No reassignment occurs.
+Only `base` and `npm` build or publish, in that order. Release names are `git.l.an/dev/base` and `git.l.an/dev/npm`; npm uses the verified base digest, not a mutable parent tag. Both receive `<VERSION>` and `latest` aliases. Package association is explicitly verified; OCI source labels alone do not establish repository visibility. No reassignment occurs.
 
 Android, Tauri, and Switchboard are excluded from both modes, validation prerequisites, release inventories, staging, tag identities, and package links. Their Dockerfiles remain for manual builds with explicitly available parents: Android defaults to `npm:latest`; Tauri/Switchboard default to a manually built `android:latest`. The automated script does not produce that Android parent. Old package names, excluded packages, and historical aliases remain untouched; this is not a remote migration or cleanup command.
 
@@ -157,7 +157,7 @@ The npm image now contains a Playwright 1.64.1 client without local browsers or 
 ```bash
 python3 -B -m unittest discover -s tests -v
 bash -n build-all.sh
-bash build-all.sh --validate
+./scripts/release.sh --validate
 ```
 
 Tests use temporary Git repositories, test-owned version/tag/notes metadata independent of project releases, and stateful fake command/HTTP boundaries. They check two-image ordering, excluded-image noninterference, digest identities, credential/proxy isolation, package API contracts and authority, failure/retry guards, and zero unauthorized writes. First publication and read-only completed retries exercise both supported server contracts, including named-package 404s and independently verified owner searches. Evidence tests cover neighboring names, late contradictory targets, inaccessible resources, malformed or incomplete pages, duplicate identities, and shared inventory limits. Focused success, completed retry, and second-image refusal scenarios exercise two fixture versions without duplicating the full suite. Passing offline checks establishes local implementation acceptance only, not native Buildx behavior, real image toolchain correctness, live UI visibility, or production readiness.
@@ -177,7 +177,7 @@ A passing smoke checklist does not authorize or certify real publication. Actual
 
 ## Reference and limits
 
-The local release code adapts [container-release-template](https://git.l.an/dev/container-release-template) 0.4.0, inspected at commit `1d051b36888fd64d9bfcd49e8e09f504943b6a1a`. Its two-image identity distinguishes post-promotion alias expectations and verifies package associations. It preserves config-local plugin search paths instead of copying the reference's documented plugin-discovery omission. Native readiness still requires the checklist.
+The release entry point and plain tag convention follow [release-template 0.7.0](https://git.l.an/dev/release-template/src/commit/1d420d9e9f508587e3c7a2cbc4254ded974a6c4a). This project retains its AMD64 parent-child graph, local build mode, and package-link guards. The original local release code adapted [container-release-template](https://git.l.an/dev/container-release-template) 0.4.0, inspected at commit `1d051b36888fd64d9bfcd49e8e09f504943b6a1a`. Its two-image identity distinguishes post-promotion alias expectations and verifies package associations. It preserves config-local plugin search paths instead of copying the reference's documented plugin-discovery omission. Native readiness still requires the checklist.
 
 Package contracts were characterized against upstream tags [`v1.24.7`](https://github.com/go-gitea/gitea/tree/v1.24.7) and [`v28.2.0`](https://github.com/go-gitea/gitea/tree/v28.2.0): API schemas (`templates/swagger/v1_json.tmpl` and `templates/swagger/v1-swagger.generated.json`, respectively), `modules/structs/user.go`, `modules/structs/package.go`, `routers/api/v1/packages/package.go`, `routers/api/v1/api.go`, `services/context/package.go`, `services/convert/user.go`, `services/convert/package.go`, `models/packages/package_version.go`, `models/perm/access/repo_permission.go`, and `services/packages/package_update.go`. The response structs emit explicit false status flags and an explicit null repository rather than omitting these fields. `ListPackages` and `SearchVersions` apply owner/type/name/internal-version filters without silently omitting version rows by repository access; conversion can filter the repository field rather than the version. Routing requires authentication, package scope, owner package read access, and the public-only token check. Owner listing avoids the named-package resolution introduced in the newer middleware. Version strings are an operational compatibility check, not cryptographic proof of the deployed binary or arbitrary fork behavior.
 

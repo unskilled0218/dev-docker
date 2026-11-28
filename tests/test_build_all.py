@@ -33,7 +33,7 @@ class ReleaseFixture(unittest.TestCase):
     for name in ("scripts", "Dockerfile"):
       shutil.copytree(source / name, self.project / name)
     self.version = version
-    self.tag = "v" + self.version
+    self.tag = self.version
     self.notes_path = "docs/releases/fixture.md"
     (self.project / "VERSION").write_text(self.version + "\n")
     notes = self.project / self.notes_path
@@ -109,7 +109,7 @@ class ReleaseFixture(unittest.TestCase):
     self.store(self.state() | values)
 
   def run_script(self, *args):
-    return subprocess.run(["bash", str(self.project / "build-all.sh"), *args], env=self.env,
+    return subprocess.run([str(self.project / "scripts/release.sh"), *args], env=self.env,
                           cwd=self.root, capture_output=True, text=True, timeout=120)
 
   def assert_success(self, result):
@@ -181,8 +181,7 @@ class LocalContractTests(ReleaseFixture):
   def test_help_and_rejected_cli_never_call_external_ports(self):
     for args in [("--help",), ("-h",)]:
       self.assert_success(self.run_script(*args))
-    mismatch = "v0.0.0" if self.tag != "v0.0.0" else "v0.0.1"
-    for args in [("latest",), (mismatch,), ("one", "two"), ("--unknown",), ("--help", self.tag),
+    for args in [("latest",), ("v" + self.version,), ("0.0.0",), ("one", "two"), ("--unknown",), ("--help", self.tag),
                  ("--validate", self.tag), ("--validate", "--build-only"), ("--build-only", "--build-only")]:
       with self.subTest(args=args):
         self.assert_refused_without_writes(self.run_script(*args))
@@ -330,7 +329,7 @@ class LocalContractTests(ReleaseFixture):
     settings.write_text(json.dumps(config))
     notes = source / config["notes"]
     notes.parent.mkdir(parents=True)
-    notes.write_text("# Release v9.8.7\n\n- Changed project release.\n")
+    notes.write_text("# Release 9.8.7\n\n- Changed project release.\n")
     self.make_fixture("2.4.6", source)
     self.assertEqual((self.project / "VERSION").read_text(), "2.4.6\n")
     self.assertEqual(json.loads((self.project / "scripts/release.json").read_text())["notes"], self.notes_path)
@@ -395,10 +394,23 @@ class PublicationTests(ReleaseFixture):
         self.assertFalse(any(call[0] == "curl" for call in self.state()["calls"]))
 
   def test_two_image_release_and_completed_read_only_retry(self):
+    self.change(release={"tag_name": "v1.2.2", "draft": False, "prerelease": False})
     self.assert_release_and_retry()
     with self.subTest(version="2.4.6"):
       self.make_fixture("2.4.6")
       self.assert_release_and_retry()
+
+  def test_conflicting_release_history_stops_before_writes(self):
+    for tag in ("v" + self.version, "1.2.4", "v1.2.4"):
+      with self.subTest(tag=tag):
+        self.change(release={"tag_name": tag, "draft": False, "prerelease": False})
+        result = self.run_script()
+        self.assert_refused_without_writes(result)
+        self.assertIn("Legacy tag or release" if tag == "v" + self.version else "Newer or unrecognized release", result.stderr)
+    self.change(release=None, tags={"v" + self.version: "a" * 40})
+    result = self.run_script()
+    self.assert_refused_without_writes(result)
+    self.assertIn("Legacy tag or release", result.stderr)
 
   def assert_release_and_retry(self):
     first = self.run_script(self.tag)
@@ -407,6 +419,10 @@ class PublicationTests(ReleaseFixture):
     kinds = [effect[0] for effect in state["effects"]]
     self.assertEqual(kinds.count("build"), 2)
     self.assertEqual(kinds.count("promote"), 4)
+    self.assertEqual({value for kind, value in state["effects"] if kind == "promote"},
+                     {f"git.l.an/dev/{name}:{alias}" for name in ("base", "npm") for alias in (self.version, "latest")})
+    self.assertIn(self.version, state["tags"])
+    self.assertEqual(state["release"]["tag_name"], self.version)
     self.assertEqual([value for kind, value in state["effects"] if kind == "link"], ["base", "npm"])
     self.assertLess(max(index for index, kind in enumerate(kinds) if kind == "link"), kinds.index("tag"))
     self.assertLess(max(index for index, kind in enumerate(kinds) if kind == "build"), kinds.index("tag"))

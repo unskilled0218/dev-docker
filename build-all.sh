@@ -4,9 +4,9 @@ set +x
 export PYTHONDONTWRITEBYTECODE=1
 
 usage() {
-  echo 'Usage: bash build-all.sh [--validate | --build-only] [v<VERSION>]'
+  echo 'Usage: ./scripts/release.sh [--validate | --build-only] [<VERSION>]'
   echo 'No arguments publishes VERSION from clean, pushed main. --help (-h) shows usage.'
-  echo 'A positional tag is a deprecated assertion and must exactly match v<VERSION>.'
+  echo 'A positional tag is a deprecated assertion and must exactly match VERSION.'
 }
 stop() {
   echo "Release stopped (${phase:-arguments}): $*" >&2

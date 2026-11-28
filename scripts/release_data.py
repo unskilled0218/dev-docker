@@ -105,9 +105,9 @@ def settings(root):
               "Dockerfile parent differs from configured graph")
   version = read(regular(root, "VERSION"), 128).decode().strip()
   semver(version)
-  tag = "v" + version
+  tag = version
   normalized_notes(read(regular(root, config["notes"]), SMALL_LIMIT), tag)
-  scripts = ("build-all.sh", "scripts/release_data.py", "scripts/release_io.py", "scripts/release_logs.py")
+  scripts = ("scripts/release.sh", "build-all.sh", "scripts/release_data.py", "scripts/release_io.py", "scripts/release_logs.py")
   script_hash = sha(b"".join(name.encode() + b"\x00" + read(regular(root, name)) for name in scripts))
   owner = config["repository"].split("/")[0]
   return config | {"version": version, "tag": tag, "script_hash": script_hash,
@@ -695,6 +695,7 @@ def inventory_scan(root, work, config):
         name = value.get("tag_name" if resource == "releases" else "name")
         require(text(name) and name not in identities, "Invalid or duplicate inventory identity")
         identities.add(name)
+        require(name != "v" + config["version"], "Legacy tag or release already uses this version")
         if name == config["tag"]:
           if resource == "releases":
             release = value
@@ -703,7 +704,7 @@ def inventory_scan(root, work, config):
         if resource == "releases":
           require(type(value.get("draft")) is bool and type(value.get("prerelease")) is bool, "Invalid release flags")
           if not value["draft"] and not value["prerelease"]:
-            require(name.startswith("v") and semver(name[1:]) <= semver(config["version"]), "Newer or unrecognized release exists")
+            require(semver(name.removeprefix("v")) <= semver(config["version"]), "Newer or unrecognized release exists")
     else:
       raise Refusal("Inventory has no terminal empty page")
   remaining = 600 - (time.monotonic() - started)
@@ -719,6 +720,8 @@ def inventory_scan(root, work, config):
     refs[parts[1]] = parts[0]
   require(items + len(refs) <= 100000, "Tag inventory item budget exceeded")
   tag = "refs/tags/" + config["tag"]
+  legacy = "refs/tags/v" + config["version"]
+  require(legacy not in refs and legacy + "^{}" not in refs, "Legacy Git tag already uses this version")
   require((api_tag is not None) == (tag in refs), "API/Git tag inventories disagree")
   require(tag in refs or tag + "^{}" not in refs, "Missing direct tag advertisement")
   versions, latest = {}, {}
@@ -1012,7 +1015,7 @@ def dispatch(arguments):
   if action == "settings":
     config = settings(root)
     if args:
-      require(args[0] == config["tag"], "Positional tag must equal configured v<VERSION>")
+      require(args[0] == config["tag"], "Positional tag must equal VERSION")
     print("Configuration valid; no credentials or external operations used")
     return 0
   if action == "locked":
