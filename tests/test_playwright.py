@@ -50,7 +50,7 @@ class PlaywrightConfigurationTests(unittest.TestCase):
     self.assertIn("external: true", client)
     self.assertIn("name: development\n", client)
     self.assertIn("PW_TEST_CONNECT_WS_ENDPOINT: ws://playwright:3000/", client)
-    self.assertIn("image: git.l.an/dev/base:latest", client)
+    self.assertIn("image: git.l.an/dev/npm:latest", client)
     self.assertNotIn("create_host_path:", client)
     self.assertNotIn("${HOME}/", client)
 

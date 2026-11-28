@@ -1,9 +1,11 @@
 services:
   app:
-    image: git.l.an/dev/base:latest
+    image: git.l.an/dev/npm:latest
     container_name: project
     stdin_open: true
     tty: true
+    ports:
+      - 5000:5000
     environment:
       PW_TEST_CONNECT_WS_ENDPOINT: ws://playwright:3000/
     networks:
