@@ -9,3 +9,4 @@
 2. Use root `VERSION` verbatim for Git, Gitea, release notes, and version image aliases. Keep immutable parent selection and `latest` promotion for both images.
 3. Accept older v-prefixed release history during inventory. Reject a newer release under either naming scheme and do not migrate old records.
 4. Update fixtures, documentation, and version metadata. Check offline validation, fresh publication through fake ports, both image aliases, and read-only retry.
+5. Refuse a matching legacy version in either tag inventory or the release inventory before writes. Cover old, same-version, and newer history. Run integration tests through the canonical entry point and check the exact published aliases.
