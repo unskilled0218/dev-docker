@@ -268,7 +268,7 @@ elif tool == "curl":
       body = records[(page - 1) * 100:page * 100]
       # v28 middleware resolves the named package before listing its versions;
       # v1.24.7 only resolves descriptors for version-specific paths.
-      if name not in state["packages"] and state["server_version"]["version"] == "28.2.0":
+      if name not in state["packages"] and state["server_version"]["version"] != "1.24.7":
         code, body = 404, {"message": "package does not exist"}
       if state.get("repeat_package_page"):
         body = records[:100]

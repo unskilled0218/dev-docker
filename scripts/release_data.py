@@ -41,8 +41,6 @@ USER_FILE_LIMIT = 1024 * 1024
 USER_TOTAL_LIMIT = 16 * 1024 * 1024
 USER_ENTRY_LIMIT = 1024
 USER_DEPTH_LIMIT = 16
-# Exact upstream contracts; newer/forked versions need characterization before use.
-PACKAGE_API_VERSIONS = {"1.24.7", "28.2.0"}
 
 
 def digest(value):
@@ -489,15 +487,15 @@ def api_read(work, config, *segments, query=None):
   return decode(value)
 
 
-def owner_record(value, owner, version):
+def owner_record(value, owner):
   require(isinstance(value, dict) and positive_id(value.get("id")) and value.get("login") == owner,
           "Authenticated package owner identity required")
   require(value.get("active") is True and value.get("restricted") is False and
           value.get("prohibit_login") is False, "Active unrestricted package owner required")
-  # v1.24.7 has no User.type. v28.2.0 exposes it and distinguishes bots/orgs.
-  if version == "28.2.0":
+  # Older user schemas omit type. If provided, it must identify an individual.
+  if "type" in value:
     require(value.get("type") == "User", "Individual package owner required")
-  return value["id"]
+  return value["id"], value.get("type")
 
 
 def package_authority(work, config):
@@ -507,15 +505,10 @@ def package_authority(work, config):
   repositories by permission; owner permission is complete, and the link service
   enforces equal namespace ownership and refuses an existing repository link.
   """
-  version = api_read(work, config, "version")
-  require(isinstance(version, dict) and isinstance(version.get("version"), str) and
-          version["version"] in PACKAGE_API_VERSIONS,
-          "Unsupported Gitea package API version; characterize this version before publication")
-  version = version["version"]
   owner = config["repository"].split("/")[0]
-  principal = owner_record(api_read(work, config, "user"), owner, version)
-  namespace = owner_record(api_read(work, config, "users", owner), owner, version)
-  require(namespace == principal and read(work / "login", 256).decode() == owner,
+  principal, user_type = owner_record(api_read(work, config, "user"), owner)
+  namespace = owner_record(api_read(work, config, "users", owner), owner)
+  require(namespace == (principal, user_type) and read(work / "login", 256).decode() == owner,
           "Token principal, package namespace and registry login must be the same owner")
   repo = api_read(work, config, "repos", *config["repository"].split("/"))
   require(isinstance(repo, dict) and positive_id(repo.get("id")) and
@@ -525,7 +518,7 @@ def package_authority(work, config):
   require(repo.get("has_packages") is True and isinstance(repo.get("permissions"), dict) and
           repo["permissions"].get("admin") is True,
           "Enable repository Packages and provide owner repository access before publication")
-  authority = {"version": version, "owner": owner, "owner_id": principal,
+  authority = {"user_type": user_type, "owner": owner, "owner_id": principal,
                "repository": config["repository"], "repository_id": repo["id"]}
   captured = work / "package-authority.json"
   if captured.exists():

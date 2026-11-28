@@ -17,12 +17,13 @@ class PackagePublicationTests(ReleaseFixture):
   def package(self, repository=None):
     return {"versions": ["older"], "repository": repository}
 
-  def test_both_characterized_server_contracts_publish(self):
-    for version in ("1.24.7", "28.2.0"):
+  def test_publication_and_retry_without_server_version_probe(self):
+    for version in ("1.24.7", "28.4.0"):
       with self.subTest(version=version):
         self.make_fixture("2.4.6")
         state = self.state()
         state["server_version"] = {"version": version}
+        state["responses"] = {"/api/v1/version": {"code": 404, "body": {}}}
         if version == "1.24.7":
           # This schema genuinely has no User.type field.
           for key in ("principal", "namespace"):
@@ -37,7 +38,8 @@ class PackagePublicationTests(ReleaseFixture):
         self.assertEqual([v for k, v in state["effects"] if k == "link"], ["base", "npm"])
         owner_reads = [call[-1] for call in state["calls"] if call[0] == "curl" and
                        urlsplit(call[-1]).path == "/api/v1/packages/dev"]
-        self.assertEqual(bool(owner_reads), version == "28.2.0")
+        self.assertEqual(bool(owner_reads), version != "1.24.7")
+        self.assertFalse(any(call[0] == "curl" and urlsplit(call[-1]).path == "/api/v1/version" for call in state["calls"]))
         for name in ("base", "npm"):
           self.assertEqual(state["packages"][name]["repository"], state["repository"])
           self.assertIn(self.tag, state["packages"][name]["versions"])
@@ -82,7 +84,7 @@ class PackagePublicationTests(ReleaseFixture):
     self.change(packages={"npm": self.package(foreign)})
     self.assert_refused_without_writes(self.run_script())
 
-  def test_package_http_errors_and_unsupported_versions_refuse_without_writes(self):
+  def test_package_http_errors_refuse_without_writes(self):
     baseline = self.state()
     cases = []
     for code in (401, 403, 404, 302, 500):
@@ -93,11 +95,7 @@ class PackagePublicationTests(ReleaseFixture):
       if code == 404:
         responses["/api/v1/packages/dev"] = {"code": 404, "body": {}}
       cases.append({"responses": responses})
-    cases += [{"server_version": {"version": "28.2.1"}},
-              {"server_version": {"version": "28.2.0-custom"}},
-              {"server_version": {"version": "28.2.0+dev"}},
-              {"responses": {"/api/v1/version": {"code": 404, "body": {}}}},
-              {"responses": {"/api/v1/packages/dev/container/npm": {"transport_failure": True}}}]
+    cases.append({"responses": {"/api/v1/packages/dev/container/npm": {"transport_failure": True}}})
     for case in cases:
       with self.subTest(case=case):
         self.store(copy.deepcopy(baseline) | case)
@@ -264,7 +262,7 @@ class PackageEvidenceTests(ReleaseFixture):
     (work / "login").write_text("dev")
     ports.write(work / "state.json", {"links": {}, "packages_ready": False})
     state = self.state()
-    values = {"/api/v1/version": state["server_version"], "/api/v1/user": state["principal"],
+    values = {"/api/v1/user": state["principal"],
               "/api/v1/users/dev": state["namespace"], "/api/v1/repos/dev/dev-docker": state["repository"]}
     def http(_work, method, url, **kwargs):
       self.assertEqual(method, "GET")
