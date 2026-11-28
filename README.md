@@ -16,7 +16,7 @@ Builds only the AMD64 `base` and `npm` development images. `bash build-all.sh` p
 
 First publication creates missing packages after verifying authenticated owner inventory; no prior local build or manual package creation is needed.
 
-Builds require `git.lanCA.crt`, `ntfy.lanCA.crt`, and `penpot.lanCA.crt`. See [certificate inputs and trust](docs/image-releases.md#credentials-and-trust) for default paths and overrides.
+Builds copy one custom CA certificate: `/usr/local/share/ca-certificates/lan.crt`. Set `BUILD_CERT_FILE` to read it from another path. See [certificate inputs and trust](docs/image-releases.md#credentials-and-trust).
 
 Builds also copy `~/.ssh`, `~/.gitconfig`, and all of `~/.config/token` into base; npm inherits them. Compose no longer mounts these host paths. Anyone with the image can extract its keys and tokens. See [private build inputs and rotation](docs/image-releases.md#personal-files) and [Penpot setup](docs/penpot-mcp.md).
 

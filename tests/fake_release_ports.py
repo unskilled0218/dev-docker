@@ -150,10 +150,8 @@ elif tool == "docker":
               for index, value in enumerate(args) if value == "--label"}
     assert labels["dev.docker.release.user-config"].startswith("sha256:")
     context = Path(args[-1])
-    assert (context / "git.lanCA.crt").read_text() == "test-certificate\n"
-    assert (context / "ntfy.lanCA.crt").read_text() == "test-ntfy-certificate\n"
-    assert (context / "penpot.lanCA.crt").read_text() == "test-penpot-certificate\n"
-    assert sorted(item.name for item in context.iterdir()) == ["Dockerfile", "git.lanCA.crt", "ntfy.lanCA.crt", "penpot.lanCA.crt", "scripts", "user-config"]
+    assert (context / "lan.crt").read_text() == "test-certificate\n"
+    assert sorted(item.name for item in context.iterdir()) == ["Dockerfile", "lan.crt", "scripts", "user-config"]
     assert sorted(item.name for item in (context / "scripts").iterdir()) == ["configure-penpot.py", "install-docker.sh"]
     assert (context / "scripts/configure-penpot.py").read_bytes()
     assert (context / "scripts/install-docker.sh").read_bytes()

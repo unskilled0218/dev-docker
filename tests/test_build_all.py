@@ -63,10 +63,6 @@ class ReleaseFixture(unittest.TestCase):
     self.token.chmod(0o600)
     self.cert = self.root / "certificate"
     self.cert.write_text("test-certificate\n")
-    self.ntfy_cert = self.root / "ntfy certificate"
-    self.ntfy_cert.write_text("test-ntfy-certificate\n")
-    self.penpot_cert = self.root / "penpot certificate"
-    self.penpot_cert.write_text("test-penpot-certificate\n")
     self.ssh = self.home / ".ssh"
     self.ssh.mkdir(parents=True, mode=0o700)
     (self.ssh / "id_ed25519").write_text("-----BEGIN OPENSSH PRIVATE KEY-----\nsynthetic-ssh-payload\n-----END OPENSSH PRIVATE KEY-----\n")
@@ -90,8 +86,6 @@ class ReleaseFixture(unittest.TestCase):
     self.env = dict(os.environ, PATH=str(self.bin) + ":" + os.environ["PATH"],
                     TEST_STATE=str(self.state_path), REAL_GIT=self.real_git,
                     FORGEJO_TOKEN_FILE=str(self.token), BUILD_CERT_FILE=str(self.cert),
-                    BUILD_NTFY_CERT_FILE=str(self.ntfy_cert),
-                     BUILD_PENPOT_CERT_FILE=str(self.penpot_cert),
                      HOME=str(self.home), BUILD_SSH_DIR=str(self.ssh),
                      BUILD_GITCONFIG_FILE=str(self.gitconfig), BUILD_TOKEN_DIR=str(self.tokens),
                      GIT_CONFIG_GLOBAL="/dev/null", GIT_CONFIG_NOSYSTEM="1",
@@ -143,8 +137,6 @@ class LocalContractTests(ReleaseFixture):
     shutil.rmtree(self.home)
     self.token.unlink()
     self.cert.unlink()
-    self.ntfy_cert.unlink()
-    self.penpot_cert.unlink()
     before = sorted(str(path.relative_to(self.project)) for path in self.project.rglob("*"))
     self.assert_success(self.run_script("--validate"))
     self.assertEqual(self.state()["calls"], [])
@@ -175,8 +167,6 @@ class LocalContractTests(ReleaseFixture):
   def assert_source_refused_before_external_operations(self, message):
     self.token.unlink()
     self.cert.unlink()
-    self.ntfy_cert.unlink()
-    self.penpot_cert.unlink()
     before = sorted(str(path.relative_to(self.root)) for path in self.root.rglob("*"))
     for args in (("--validate",), ("--build-only",), ()):
       with self.subTest(args=args):
@@ -273,30 +263,27 @@ class LocalContractTests(ReleaseFixture):
     self.assert_refused_without_writes(self.run_script("--build-only"))
 
   def test_invalid_certificates_refuse_before_external_calls_and_clean_up(self):
-    for path, override in ((self.cert, "BUILD_CERT_FILE"), (self.ntfy_cert, "BUILD_NTFY_CERT_FILE"),
-                           (self.penpot_cert, "BUILD_PENPOT_CERT_FILE")):
-      original = path.read_bytes()
-      for content in (None, b"", b"x" * (ports.CONFIG_LIMIT + 1)):
-        for args in (("--build-only",), ()):
-          with self.subTest(certificate=override, content_size=None if content is None else len(content), args=args):
-            if content is None:
-              path.unlink(missing_ok=True)
-            else:
-              path.write_bytes(content)
-            result = self.run_script(*args)
-            self.assert_refused_without_writes(result)
-            self.assertIn(override, result.stderr)
-            self.assertEqual(self.state()["calls"], [])
-            self.assertFalse(list(self.root.glob("dev-docker-release.*")))
-            self.assertNotIn(str(path), result.stdout + result.stderr)
+    path, override = self.cert, "BUILD_CERT_FILE"
+    original = path.read_bytes()
+    for content in (None, b"", b"x" * (ports.CONFIG_LIMIT + 1)):
+      for args in (("--build-only",), ()):
+        with self.subTest(certificate=override, content_size=None if content is None else len(content), args=args):
+          if content is None:
+            path.unlink(missing_ok=True)
+          else:
+            path.write_bytes(content)
+          result = self.run_script(*args)
+          self.assert_refused_without_writes(result)
+          self.assertIn(override, result.stderr)
+          self.assertEqual(self.state()["calls"], [])
+          self.assertFalse(list(self.root.glob("dev-docker-release.*")))
+          self.assertNotIn(str(path), result.stdout + result.stderr)
       path.write_bytes(original)
 
   def test_host_only_docker_connection_and_relative_paths(self):
     self.env["DOCKER_HOST"] = "tcp://test-host:2376"
     self.env["DOCKER_CONFIG"] = os.path.relpath(self.docker_config, self.root)
     self.env["BUILD_CERT_FILE"] = os.path.relpath(self.cert, self.root)
-    self.env["BUILD_NTFY_CERT_FILE"] = os.path.relpath(self.ntfy_cert, self.root)
-    self.env["BUILD_PENPOT_CERT_FILE"] = os.path.relpath(self.penpot_cert, self.root)
     self.change(endpoint="tcp://test-host:2376")
     self.assert_success(self.run_script("--build-only"))
 
@@ -516,60 +503,38 @@ class PublicationTests(ReleaseFixture):
 class DataBoundaryTests(ReleaseFixture):
   def test_certificate_defaults_overrides_and_empty_overrides(self):
     config = data.settings(self.project)
-    self.assertEqual(config["certificate_file"], "/usr/local/share/ca-certificates/git.lanCA.crt")
-    self.assertEqual(config["ntfy_certificate_file"], "/usr/local/share/ca-certificates/ntfy.lanCA.crt")
-    self.assertEqual(config["penpot_certificate_file"], "/usr/local/share/ca-certificates/penpot.lanCA.crt")
-    config |= {"certificate_file": str(self.cert), "ntfy_certificate_file": str(self.ntfy_cert),
-               "penpot_certificate_file": str(self.penpot_cert)}
-    other_git, other_ntfy = self.root / "other git", self.root / "other ntfy"
-    other_git.write_bytes(b"other-git")
-    other_ntfy.write_bytes(b"other-ntfy")
-    cases = [({}, self.cert.read_bytes(), self.ntfy_cert.read_bytes()),
-             ({"BUILD_CERT_FILE": "", "BUILD_NTFY_CERT_FILE": ""}, self.cert.read_bytes(), self.ntfy_cert.read_bytes()),
-             ({"BUILD_CERT_FILE": str(other_git)}, b"other-git", self.ntfy_cert.read_bytes()),
-             ({"BUILD_NTFY_CERT_FILE": str(other_ntfy)}, self.cert.read_bytes(), b"other-ntfy"),
-             ({"BUILD_CERT_FILE": str(other_git), "BUILD_NTFY_CERT_FILE": str(other_ntfy)}, b"other-git", b"other-ntfy")]
-    other_penpot = self.root / "other penpot"
-    other_penpot.write_bytes(b"other-penpot")
-    for environment, git_value, ntfy_value in cases:
-      for penpot_override, penpot_value in ((None, self.penpot_cert.read_bytes()),
-                                            ("", self.penpot_cert.read_bytes()),
-                                            (str(other_penpot), b"other-penpot")):
-        overrides = dict(environment)
-        if penpot_override is not None:
-          overrides["BUILD_PENPOT_CERT_FILE"] = penpot_override
-        with self.subTest(environment=overrides), patch.dict(os.environ, overrides, clear=True):
-          self.assertEqual(data.certificates(config), {"git.lanCA.crt": git_value, "ntfy.lanCA.crt": ntfy_value,
-                                                      "penpot.lanCA.crt": penpot_value})
+    self.assertEqual(config["certificate_file"], "/usr/local/share/ca-certificates/lan.crt")
+    config["certificate_file"] = str(self.cert)
+    other = self.root / "other certificate"
+    other.write_bytes(b"other")
+    for environment, value in (({}, self.cert.read_bytes()), ({"BUILD_CERT_FILE": ""}, self.cert.read_bytes()),
+                               ({"BUILD_CERT_FILE": str(other)}, b"other")):
+      with self.subTest(environment=environment), patch.dict(os.environ, environment, clear=True):
+        self.assertEqual(data.certificates(config), {"lan.crt": value})
 
   def test_certificate_home_expansion(self):
     config = data.settings(self.project)
-    with patch.dict(os.environ, {"HOME": str(self.root), "BUILD_CERT_FILE": "~/certificate",
-                                 "BUILD_NTFY_CERT_FILE": "~/ntfy certificate",
-                                 "BUILD_PENPOT_CERT_FILE": "~/penpot certificate"}, clear=True):
-      self.assertEqual(data.certificates(config), {"git.lanCA.crt": self.cert.read_bytes(),
-                                                  "ntfy.lanCA.crt": self.ntfy_cert.read_bytes(),
-                                                  "penpot.lanCA.crt": self.penpot_cert.read_bytes()})
+    with patch.dict(os.environ, {"HOME": str(self.root), "BUILD_CERT_FILE": "~/certificate"}, clear=True):
+      self.assertEqual(data.certificates(config), {"lan.crt": self.cert.read_bytes()})
 
   def test_certificate_read_errors_are_sanitized(self):
     config = data.settings(self.project)
-    for override, path in (("BUILD_CERT_FILE", self.cert), ("BUILD_NTFY_CERT_FILE", self.ntfy_cert),
-                           ("BUILD_PENPOT_CERT_FILE", self.penpot_cert)):
-      def denied(candidate, limit):
-        if candidate == path:
-          raise PermissionError("private-certificate-path-and-content")
-        return ports.read(candidate, limit)
-      with self.subTest(override=override), patch.dict(os.environ, self.env, clear=True), patch.object(data, "read", side_effect=denied):
-        with self.assertRaises(ports.Refusal) as caught:
-          data.certificates(config)
-        self.assertIn(override, str(caught.exception))
-        self.assertNotIn("private-certificate", str(caught.exception))
-        self.assertNotIn(str(path), str(caught.exception))
+    override, path = "BUILD_CERT_FILE", self.cert
+    def denied(candidate, limit):
+      if candidate == path:
+        raise PermissionError("private-certificate-path-and-content")
+      return ports.read(candidate, limit)
+    with self.subTest(override=override), patch.dict(os.environ, self.env, clear=True), patch.object(data, "read", side_effect=denied):
+      with self.assertRaises(ports.Refusal) as caught:
+        data.certificates(config)
+      self.assertIn(override, str(caught.exception))
+      self.assertNotIn("private-certificate", str(caught.exception))
+      self.assertNotIn(str(path), str(caught.exception))
 
-  def test_unreadable_penpot_refuses_initialization_before_source_operations(self):
+  def test_unreadable_certificate_refuses_initialization_before_source_operations(self):
     def denied(candidate, limit=ports.API_LIMIT):
-      if candidate == self.penpot_cert:
-        raise PermissionError("private-penpot-path-and-content")
+      if candidate == self.cert:
+        raise PermissionError("private-certificate-path-and-content")
       return ports.read(candidate, limit)
 
     for mode in ("local", "publish"):
@@ -579,26 +544,18 @@ class DataBoundaryTests(ReleaseFixture):
            patch.object(data, "read", side_effect=denied), patch.object(data, "source") as source:
         with self.assertRaises(ports.Refusal) as caught:
           data.init(self.project, work, mode)
-        self.assertIn("BUILD_PENPOT_CERT_FILE", str(caught.exception))
-        self.assertNotIn("private-penpot", str(caught.exception))
-        self.assertNotIn(str(self.penpot_cert), str(caught.exception))
+        self.assertIn("BUILD_CERT_FILE", str(caught.exception))
+        self.assertNotIn("private-certificate", str(caught.exception))
+        self.assertNotIn(str(self.cert), str(caught.exception))
         source.assert_not_called()
         self.assertEqual(list(work.iterdir()), [])
 
   def test_certificate_fingerprint_binds_names_and_all_contents(self):
-    values = {"git.lanCA.crt": self.cert.read_bytes(), "ntfy.lanCA.crt": self.ntfy_cert.read_bytes(),
-              "penpot.lanCA.crt": self.penpot_cert.read_bytes()}
+    values = {"lan.crt": self.cert.read_bytes()}
     expected = ports.sha(ports.canonical({name: ports.sha(value) for name, value in values.items()}))
     self.assertEqual(data.certificate_fingerprint(values), expected)
-    self.assertEqual(data.certificate_fingerprint(dict(reversed(list(values.items())))), expected)
-    for name in values:
-      with self.subTest(certificate=name):
-        self.assertNotEqual(data.certificate_fingerprint(values | {name: b"changed"}), expected)
-    names = list(values)
-    for first, second in ((names[0], names[1]), (names[0], names[2]), (names[1], names[2])):
-      with self.subTest(swapped=(first, second)):
-        swapped = values | {first: values[second], second: values[first]}
-        self.assertNotEqual(data.certificate_fingerprint(swapped), expected)
+    self.assertNotEqual(data.certificate_fingerprint({"lan.crt": b"changed"}), expected)
+    self.assertNotEqual(data.certificate_fingerprint({"renamed.crt": self.cert.read_bytes()}), expected)
 
   def test_guard_rejects_any_changed_certificate_before_inventory(self):
     work = self.root / "private"
@@ -607,31 +564,24 @@ class DataBoundaryTests(ReleaseFixture):
       data.init(self.project, work, "local")
       config = ports.document(work / "settings.json") | {"commit": self.state()["commit"]}
       data.unchanged(self.project, work, config)
-      for path in (self.cert, self.ntfy_cert, self.penpot_cert):
-        original = path.read_bytes()
-        with self.subTest(certificate=path.name):
-          path.write_bytes(b"changed")
-          self.assertRaisesRegex(ports.Refusal, "Build certificate changed", data.guard, self.project, work, config)
-          inventory.assert_not_called()
-          path.write_bytes(original)
+      original = self.cert.read_bytes()
+      self.cert.write_bytes(b"changed")
+      self.assertRaisesRegex(ports.Refusal, "Build certificate changed", data.guard, self.project, work, config)
+      inventory.assert_not_called()
+      self.cert.write_bytes(original)
       data.unchanged(self.project, work, config)
 
   def test_snapshots_use_captured_bytes_for_local_and_publication(self):
-    originals = {"git.lanCA.crt": self.cert.read_bytes(), "ntfy.lanCA.crt": self.ntfy_cert.read_bytes(),
-                 "penpot.lanCA.crt": self.penpot_cert.read_bytes()}
+    originals = {"lan.crt": self.cert.read_bytes()}
     for local in (True, False):
       with self.subTest(local=local):
-        self.cert.write_bytes(originals["git.lanCA.crt"])
-        self.ntfy_cert.write_bytes(originals["ntfy.lanCA.crt"])
-        self.penpot_cert.write_bytes(originals["penpot.lanCA.crt"])
+        self.cert.write_bytes(originals["lan.crt"])
         work = self.root / ("local-snapshot" if local else "publish-snapshot")
         work.mkdir(mode=0o700)
         with patch.dict(os.environ, self.env, clear=True):
           data.init(self.project, work, "local")
         config = ports.document(work / "settings.json") | {"commit": self.state()["commit"]}
         self.cert.write_bytes(b"changed-git")
-        self.ntfy_cert.write_bytes(b"changed-ntfy")
-        self.penpot_cert.write_bytes(b"changed-penpot")
         data.snapshot(self.project, work, config, local)
         context = work / "context"
         self.assertEqual(sorted(path.name for path in context.iterdir()), ["Dockerfile", *sorted(originals), "scripts", "user-config"])
@@ -659,11 +609,9 @@ class DataBoundaryTests(ReleaseFixture):
 
   def test_base_dockerfile_copies_all_certificates_before_trust_update(self):
     content = (self.project / "Dockerfile/base.Dockerfile").read_text()
-    for name in ("git.lanCA.crt", "ntfy.lanCA.crt", "penpot.lanCA.crt"):
-      with self.subTest(certificate=name):
-        copy = "COPY " + name + " /usr/local/share/ca-certificates/" + name + "\n"
-        self.assertIn(copy, content)
-        self.assertLess(content.index(copy), content.index("update-ca-certificates"))
+    copy = "COPY lan.crt /usr/local/share/ca-certificates/lan.crt"
+    self.assertEqual([line for line in content.splitlines() if line.startswith("COPY ") and ".crt" in line], [copy])
+    self.assertLess(content.index(copy), content.index("update-ca-certificates"))
 
   def test_configurator_snapshot_uses_worktree_locally_and_commit_for_publication(self):
     helper = self.project / "scripts/configure-penpot.py"

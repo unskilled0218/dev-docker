@@ -1,9 +1,7 @@
 # syntax=docker/dockerfile:1
 FROM ubuntu:24.04
 
-COPY git.lanCA.crt /usr/local/share/ca-certificates/git.lanCA.crt
-COPY ntfy.lanCA.crt /usr/local/share/ca-certificates/ntfy.lanCA.crt
-COPY penpot.lanCA.crt /usr/local/share/ca-certificates/penpot.lanCA.crt
+COPY lan.crt /usr/local/share/ca-certificates/lan.crt
 
 ENV DEBIAN_FRONTEND=noninteractive
 

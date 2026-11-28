@@ -4,10 +4,8 @@
   "repository": "dev/dev-docker",
   "username": "dev",
   "token_file": "~/.config/token/git",
-  "certificate_file": "/usr/local/share/ca-certificates/git.lanCA.crt",
-  "ntfy_certificate_file": "/usr/local/share/ca-certificates/ntfy.lanCA.crt",
-  "penpot_certificate_file": "/usr/local/share/ca-certificates/penpot.lanCA.crt",
-  "notes": "docs/releases/0.1.24.md",
+  "certificate_file": "/usr/local/share/ca-certificates/lan.crt",
+  "notes": "docs/releases/0.1.25.md",
   "platforms": ["linux/amd64"],
   "images": [
     {"name": "base", "dockerfile": "Dockerfile/base.Dockerfile", "parent": null},
