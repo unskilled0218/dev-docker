@@ -24,7 +24,7 @@
 
 Validation needs Bash and Python 3.11+ only. It reads local settings, version, notes, and source paths without credentials, locks, temporary files, Docker, or network access. Commands work from any directory.
 
-No arguments publishes root `VERSION` as `<VERSION>` and `latest` for all images. Update `VERSION`, `scripts/release.json`'s notes path, and matching committed release notes together; commit and push clean `main` before publication. Historical notes remain in `docs/releases/`; keep README’s example current. `bash build-all.sh` remains available. A matching legacy `v<VERSION>` Git tag or Gitea release blocks publication. Older stable releases under either naming convention are allowed; newer ones block publication. Historical releases are not rewritten.
+No arguments publishes root `VERSION` as `<VERSION>` and `latest` for all images. Update `VERSION`, `scripts/release.json`'s notes path, and matching committed release notes together; commit and push clean `main` before publication. Historical notes remain in `docs/releases/`; keep README’s example current. A matching legacy `v<VERSION>` Git tag or Gitea release blocks publication. Older stable releases under either naming convention are allowed; newer ones block publication. Historical releases are not rewritten.
 
 `--help` and `-h` show usage using Bash only. A positional tag is deprecated but accepted only when it exactly equals `<VERSION>`, with or without `--build-only`, in either order. Mismatched tags (including explicit `latest`), duplicate tags/flags, unknown flags, and help/validation combined with other arguments are refused before external effects. There is no arbitrary-tag publication override.
 
@@ -156,7 +156,7 @@ The npm image now contains a Playwright 1.64.1 client without local browsers or 
 
 ```bash
 python3 -B -m unittest discover -s tests -v
-bash -n build-all.sh
+bash -n scripts/release.sh
 ./scripts/release.sh --validate
 ```
 

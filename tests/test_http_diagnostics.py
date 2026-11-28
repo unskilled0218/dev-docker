@@ -6,7 +6,7 @@ import time
 import unittest
 from unittest.mock import patch
 
-from test_build_all import data, ports
+from test_release import data, ports
 
 
 class HttpDiagnosticsTests(unittest.TestCase):

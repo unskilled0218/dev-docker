@@ -7,7 +7,7 @@ import socket
 import stat
 from unittest.mock import patch
 
-from test_build_all import ReleaseFixture
+from test_release import ReleaseFixture
 import release_data as data
 import release_io as ports
 

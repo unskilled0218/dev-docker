@@ -14,7 +14,7 @@ import time
 import unittest
 from unittest.mock import patch
 
-from test_build_all import PROJECT, ReleaseFixture, data, ports
+from test_release import PROJECT, ReleaseFixture, data, ports
 import release_logs as logs
 
 

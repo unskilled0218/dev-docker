@@ -107,7 +107,7 @@ def settings(root):
   semver(version)
   tag = version
   normalized_notes(read(regular(root, config["notes"]), SMALL_LIMIT), tag)
-  scripts = ("scripts/release.sh", "build-all.sh", "scripts/release_data.py", "scripts/release_io.py", "scripts/release_logs.py")
+  scripts = ("scripts/release.sh", "scripts/release_data.py", "scripts/release_io.py", "scripts/release_logs.py")
   script_hash = sha(b"".join(name.encode() + b"\x00" + read(regular(root, name)) for name in scripts))
   owner = config["repository"].split("/")[0]
   return config | {"version": version, "tag": tag, "script_hash": script_hash,

@@ -266,7 +266,7 @@ def locked(root, arguments):
     except BlockingIOError as exc:
       raise Refusal("Another operation holds this checkout's release lock") from exc
     # Only the launcher creates this descriptor. The script validates the inherited inode.
-    child = subprocess.Popen(["bash", str(Path(root) / "build-all.sh"), *arguments],
+    child = subprocess.Popen(["bash", str(Path(root) / "scripts/release.sh"), *arguments],
                              env=os.environ | {"RELEASE_LOCK_FD": str(descriptor)},
                              pass_fds=(descriptor,), start_new_session=True)
     def forward(number, _frame):

@@ -28,8 +28,7 @@ class ReleaseFixture(unittest.TestCase):
     self.root = Path(self.temp.name)
     self.project = self.root / "project with spaces"
     self.project.mkdir()
-    for name in ("build-all.sh", ".gitignore"):
-      shutil.copy(source / name, self.project / name)
+    shutil.copy(source / ".gitignore", self.project)
     for name in ("scripts", "Dockerfile"):
       shutil.copytree(source / name, self.project / name)
     self.version = version
@@ -288,7 +287,7 @@ class LocalContractTests(ReleaseFixture):
 
   def test_signal_stops_owned_build_and_removes_private_files(self):
     self.change(pause_build=True)
-    process = subprocess.Popen(["bash", str(self.project / "build-all.sh"), "--build-only"],
+    process = subprocess.Popen([str(self.project / "scripts/release.sh"), "--build-only"],
                                env=self.env, cwd=self.root, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     try:
       marker = Path(str(self.state_path) + ".started")
@@ -318,8 +317,7 @@ class LocalContractTests(ReleaseFixture):
   def test_fixture_ignores_changed_project_release_metadata(self):
     source = self.root / "changed project source"
     source.mkdir()
-    for name in ("build-all.sh", ".gitignore"):
-      shutil.copy(PROJECT / name, source / name)
+    shutil.copy(PROJECT / ".gitignore", source)
     for name in ("scripts", "Dockerfile"):
       shutil.copytree(PROJECT / name, source / name)
     (source / "VERSION").write_text("9.8.7\n")
